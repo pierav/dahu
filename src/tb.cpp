@@ -4,11 +4,28 @@
 #include "verilated.h"
 #include <iostream>
 #include <cstdint>
+#include <chrono>
 
 #define RAM_KEY(root) ((void*)root->system__DOT__simram__DOT__mem.m_storage)
 
+using namespace std::chrono;
+
+high_resolution_clock::time_point t_start, t_end;
+
+void tic(){
+    t_start = high_resolution_clock::now();
+}
+
+void tac(){
+    auto t_end = high_resolution_clock::now();
+    auto millis = duration_cast<milliseconds>(t_end - t_start).count();
+    std::cout << "WCT: " << millis << " ms" << std::endl;
+    t_start = t_end;
+}
+
 int main(int argc, char **argv) {
     std::cout << "Hello from tb.cpp" << std::endl;
+    tic();
 
     Verilated::commandArgs(argc, argv);
     Vsystem* dut = new Vsystem;
@@ -21,7 +38,7 @@ int main(int argc, char **argv) {
     uint64_t exit_code_o = 0;
 
     // Simulation variables
-    const uint64_t MAX_CYCLES = 1000000;  // max cycles to avoid infinite loop
+    const uint64_t MAX_CYCLES = 10000000;  // max cycles to avoid infinite loop
     
     printf ("V = %d\n", VERILATOR_VERSION_INTEGER);
     // Initialise ram
@@ -30,7 +47,7 @@ int main(int argc, char **argv) {
         ram[i] = i;
     }
 
-    for (uint64_t i = 0; i < MAX_CYCLES; i++) {
+    for (uint64_t i = 1; i < MAX_CYCLES; i++) {
         // Toggle clock every half cycle:
         clk = !clk;
         
@@ -64,9 +81,12 @@ int main(int argc, char **argv) {
                 break; // exit simulation
             }
         }
+        // Todo heartbeat ?
     }
 
     delete dut;
+    std::cout << "Elapsed " << cycles << " cycles" << std::endl;
+    tac();
     return 0;
 }
 

@@ -8,6 +8,7 @@ VERILATOR := verilator/bin/verilator
 		SVFLAGS :=  -Wall -Wpedantic \
 	--cc src/tb.cpp --trace \
 	--sv $(SRC) --Wno-DECLFILENAME --timing \
+	--Wno-UNUSEDSIGNAL \
 	--top-module $(TOP) \
 	--exe --build \
 	--Mdir build

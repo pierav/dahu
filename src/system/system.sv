@@ -7,7 +7,7 @@ module system #() (
   output logic exit_o,
   output logic [C::XLEN-1:0] exit_code_o
 );
-  
+
   logic [C::XLEN-1:0] rdata;
   logic [20-1:0] addr_q, addr_d;
   logic [20-1:0] addr_q_buf;
@@ -35,7 +35,7 @@ module system #() (
       addr_q_buf <= addr_q;
       addr_q <= addr_d;
     end
-    $display($time, ": mem[%x]=%x", addr_q_buf, rdata);
+    // $display($time, ": mem[%x]=%x", addr_q_buf, rdata);
   end
 
 
@@ -45,12 +45,12 @@ module system #() (
     exit_o      = 0;
     exit_code_o = 0;
 
-    repeat (20) @(posedge clk);
+    repeat (1000000) @(posedge clk);
     exit_o      = 1;
     exit_code_o = 42;
   end
 
   always_ff @(posedge clk) begin
-    $display($time, ": rstn = %d exit_o = %d", rstn, exit_o);
+    // $display($time, ": rstn = %d exit_o = %d", rstn, exit_o);
   end
 endmodule
