@@ -2,7 +2,7 @@
 
 TOP = system
 PKGS := src/C_pkg.sv
-SRC := $(PKGS) $(wildcard src/system/*.sv)
+SRC := $(PKGS) $(wildcard src/system/*.sv) $(wildcard src/utils/*.sv)
 
 VERILATOR := verilator/bin/verilator
 		SVFLAGS :=  -Wall -Wpedantic \

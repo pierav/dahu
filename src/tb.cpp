@@ -1,7 +1,11 @@
 #include "Vsystem.h"
+#include "Vsystem___024root.h" // ugly bypass
+
 #include "verilated.h"
 #include <iostream>
 #include <cstdint>
+
+#define RAM_KEY(root) ((void*)root->system__DOT__simram__DOT__mem.m_storage)
 
 int main(int argc, char **argv) {
     std::cout << "Hello from tb.cpp" << std::endl;
@@ -18,6 +22,13 @@ int main(int argc, char **argv) {
 
     // Simulation variables
     const uint64_t MAX_CYCLES = 1000000;  // max cycles to avoid infinite loop
+    
+    printf ("V = %d\n", VERILATOR_VERSION_INTEGER);
+    // Initialise ram
+    uint64_t *ram = (uint64_t*)RAM_KEY(dut->rootp);
+    for(int i = 0; i < 100; i++){
+        ram[i] = i;
+    }
 
     for (uint64_t i = 0; i < MAX_CYCLES; i++) {
         // Toggle clock every half cycle:
