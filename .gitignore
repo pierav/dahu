@@ -1,2 +1,6 @@
 verilator
 build
+riscv-isa-sim
+riscv-opcodes
+
+benchs/build

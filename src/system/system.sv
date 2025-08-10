@@ -8,49 +8,43 @@ module system #() (
   output logic [C::XLEN-1:0] exit_code_o
 );
 
-  logic [C::XLEN-1:0] rdata;
-  logic [20-1:0] addr_q, addr_d;
-  logic [20-1:0] addr_q_buf;
+  logic [C::XLEN-1:0] fetch_addr;
+  logic [32-1:0] fetch_data;
 
-  sram1rw #(
-    .ADDR_WIDTH(20),
-    .DATA_WIDTH(C::XLEN)
-  ) simram (
-    .clk,
-    .we(0),
-    .addr(addr_q),
-    .wdata(0),
-    .rdata
+  parameter unsigned ADDR_WIDTH = 20;
+  
+  logic fetch_addr_valid, fetch_data_valid;
+
+  core #() core (
+    .clk(clk),
+    .rstn(rstn),
+    .fetch_addr_ready(1'b1),
+    .fetch_addr_valid(fetch_addr_valid),
+    .fetch_addr(fetch_addr),
+    .fetch_data_valid(fetch_data_valid),
+    .fetch_data(fetch_data),
+    .exit_o(exit_o),
+    .exit_code_o(exit_code_o)
   );
 
-  always_comb begin
-    addr_d = addr_q + 1;
-  end
-
+  /* Fake Memory */
+  sram1rw #(
+    .ADDR_WIDTH(ADDR_WIDTH),
+    .DATA_WIDTH(32)
+  ) simram (
+    .clk(clk),
+    .we(1'b0),
+    .addr(fetch_addr[ADDR_WIDTH-1:0]),
+    .wdata(32'b0),
+    .rdata(fetch_data)
+  );
+  // SRAM always valid
   always_ff @(posedge clk) begin
     if(!rstn) begin
-      addr_q <= 0;
-      addr_q_buf <= 0;
-    end else begin
-      addr_q_buf <= addr_q;
-      addr_q <= addr_d;
+      fetch_data_valid <= 0;
+    end else  begin
+      fetch_data_valid <= fetch_addr_valid;
     end
-    // $display($time, ": mem[%x]=%x", addr_q_buf, rdata);
   end
 
-
-
-  initial begin
-    $display("Hello from system");
-    exit_o      = 0;
-    exit_code_o = 0;
-
-    repeat (1000000) @(posedge clk);
-    exit_o      = 1;
-    exit_code_o = 42;
-  end
-
-  always_ff @(posedge clk) begin
-    // $display($time, ": rstn = %d exit_o = %d", rstn, exit_o);
-  end
 endmodule
