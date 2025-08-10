@@ -6,6 +6,10 @@
 * [?] Vectorial extension or Horizontal CPU ?
 * [?] Rich addressing mode ? 
 
+# RISC-V
+
+use `-march=rv64imafd_zicsr_zifencei`
+
 # HW TODO
 
 * Exception/IT/DebugMode at commit or at decode ? 

@@ -22,7 +22,7 @@ module core #() (
     assign fetch_addr_valid = fetch_addr_ready; // Always req when ready
     assign fetch_addr = pc_q;
     
-    assign pc_d = pc_q + 1;
+    assign pc_d = pc_q + 4;
     always_ff @(posedge clk) begin
         if(!rstn) begin
             if2dec_pc_q <= 0;
@@ -67,8 +67,13 @@ module core #() (
     
     always_ff @(posedge clk) begin
         if(decoder_valid) begin
+            // First check oracle
             handler_pkg::dpi_instr_decode(
                 {12'b0, di.id}, di.si.pc, di.si.tinst);
+            // Then check HW decoder
+            if(!di.si.valid) begin
+                $error("invalid inst m!", di.si.tinst);
+            end
         end
     end
     

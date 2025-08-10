@@ -1,3 +1,6 @@
+#include "encoding.h"
+#include "isa.hh"
+
 const char* FloatRegNames[] = {
     "ft0", "ft1", "ft2", "ft3",
     "ft4", "ft5", "ft6", "ft7",
@@ -19,3 +22,13 @@ const char* IntRegNames[] = {
     "s8", "s9", "s10", "s11",
     "t3", "t4", "t5", "t6"
 };
+
+const char* csr_name(uint32_t csr_num) {
+    switch (csr_num) {
+        // Machine Information Registers
+        #define DECLARE_CSR(name, value) \
+        case value: return #name;
+        #include "encoding.h"
+        default: return "unknown_csr";
+    }
+}

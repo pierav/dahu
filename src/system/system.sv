@@ -34,7 +34,7 @@ module system #() (
   ) simram (
     .clk(clk),
     .we(1'b0),
-    .addr(fetch_addr[ADDR_WIDTH-1:0]),
+    .addr(fetch_addr[ADDR_WIDTH-1+2:2]),
     .wdata(32'b0),
     .rdata(fetch_data)
   );

@@ -57,7 +57,8 @@ _zsbl_cpy:
   j 2b
 1:
 
-#ifdef __riscv_flen
+#ifdef TO_BE_REMOVED_USE_FPU
+  # __riscv_flen
   # initialize FPU if we have one
   la t0, 1f
   csrw mtvec, t0

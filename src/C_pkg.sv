@@ -13,6 +13,9 @@ package C;
         FU_DIV, FU_CSR, FU_FPU
     } fu_t;
 
+    // TODO use a width + sign bit in decoded instruction 
+    // to avoid variant encoded in fu op set
+
     typedef enum logic [4:0] {
         NOP,
         MRET, SRET, DRET,
@@ -106,7 +109,7 @@ package C;
     /* Interrupt-Management Instructions */
     parameter fuop_t I_WFI        = {FU_NONE, WFI,       TYPE_R};
     /* Supervisor Memory-Management Instructions */
-    parameter fuop_t I_FENCE_VMA  = {FU_NONE, FENCE_VMA, TYPE_R};
+    parameter fuop_t I_SFENCE_VMA  = {FU_NONE, FENCE_VMA, TYPE_R};
 
     /* RV32I Base Instruction Set */
     parameter fuop_t I_LUI    = {FU_ALU,    LUI,    TYPE_U};
@@ -175,7 +178,7 @@ package C;
     parameter fuop_t I_CSRRSI = {FU_NONE,    CSR_SET,    TYPE_CSRUimm};
     parameter fuop_t I_CSRRCI = {FU_NONE,    CSR_CLEAR,  TYPE_CSRUimm};
     
-    /* RV32M Standard Extension */
+    /* RV32/RV64 M Standard Extension */
     parameter fuop_t I_MUL    = {FU_MUL,     MUL,         TYPE_R};
     parameter fuop_t I_MULH   = {FU_MUL,     MULH,        TYPE_R};
     parameter fuop_t I_MULHSU = {FU_MUL,     MULHSU,      TYPE_R};
@@ -184,8 +187,6 @@ package C;
     parameter fuop_t I_DIVU   = {FU_DIV,     DIVU,        TYPE_R};
     parameter fuop_t I_REM    = {FU_DIV,     REM,         TYPE_R};
     parameter fuop_t I_REMU   = {FU_DIV,     REMU,        TYPE_R};
-    
-    /* RV64M Standard Extension (in addition to RV32M) */
     parameter fuop_t I_MULW   = {FU_MUL,     MULW,        TYPE_R};
     parameter fuop_t I_DIVW   = {FU_DIV,     DIVW,        TYPE_R};
     parameter fuop_t I_DIVUW  = {FU_DIV,     DIVUW,       TYPE_R};  
@@ -193,30 +194,30 @@ package C;
     parameter fuop_t I_REMUW  = {FU_DIV,     REMUW,       TYPE_R};
 
     /* RV32A Standard Extension */
-    parameter fuop_t I_AMO_LRW    = {FU_AMO, AMO_LRW,     TYPE_R};
-    parameter fuop_t I_AMO_SCW    = {FU_AMO, AMO_SCW,     TYPE_R};
-    parameter fuop_t I_AMO_SWAPW  = {FU_AMO, AMO_SWAPW,   TYPE_R};
-    parameter fuop_t I_AMO_ADDW   = {FU_AMO, AMO_ADDW,    TYPE_R};
-    parameter fuop_t I_AMO_ANDW   = {FU_AMO, AMO_ANDW,    TYPE_R};
-    parameter fuop_t I_AMO_ORW    = {FU_AMO, AMO_ORW,     TYPE_R};
-    parameter fuop_t I_AMO_XORW   = {FU_AMO, AMO_XORW,    TYPE_R};
-    parameter fuop_t I_AMO_MAXW   = {FU_AMO, AMO_MAXW,    TYPE_R};
-    parameter fuop_t I_AMO_MAXWU  = {FU_AMO, AMO_MAXWU,   TYPE_R};
-    parameter fuop_t I_AMO_MINW   = {FU_AMO, AMO_MINW,    TYPE_R};
-    parameter fuop_t I_AMO_MINWU  = {FU_AMO, AMO_MINWU,   TYPE_R};
+    parameter fuop_t I_LR_W    = {FU_AMO, AMO_LRW,     TYPE_R};
+    parameter fuop_t I_SC_W    = {FU_AMO, AMO_SCW,     TYPE_R};
+    parameter fuop_t I_AMOSWAP_W  = {FU_AMO, AMO_SWAPW,   TYPE_R};
+    parameter fuop_t I_AMOADD_W   = {FU_AMO, AMO_ADDW,    TYPE_R};
+    parameter fuop_t I_AMOAND_W   = {FU_AMO, AMO_ANDW,    TYPE_R};
+    parameter fuop_t I_AMOOR_W    = {FU_AMO, AMO_ORW,     TYPE_R};
+    parameter fuop_t I_AMOXOR_W   = {FU_AMO, AMO_XORW,    TYPE_R};
+    parameter fuop_t I_AMOMAX_W   = {FU_AMO, AMO_MAXW,    TYPE_R};
+    parameter fuop_t I_AMOMAXU_W  = {FU_AMO, AMO_MAXWU,   TYPE_R};
+    parameter fuop_t I_AMOMIN_W   = {FU_AMO, AMO_MINW,    TYPE_R};
+    parameter fuop_t I_AMOMINU_W  = {FU_AMO, AMO_MINWU,   TYPE_R};
 
     /* RV64A Standard Extension (in addition to RV32A) */
-    parameter fuop_t I_AMO_LRD    = {FU_AMO, AMO_LRD,     TYPE_R};
-    parameter fuop_t I_AMO_SCD    = {FU_AMO, AMO_SCD,     TYPE_R};
-    parameter fuop_t I_AMO_SWAPD  = {FU_AMO, AMO_SWAPD,   TYPE_R};
-    parameter fuop_t I_AMO_ADDD   = {FU_AMO, AMO_ADDD,    TYPE_R};
-    parameter fuop_t I_AMO_XORD   = {FU_AMO, AMO_XORD,    TYPE_R};
-    parameter fuop_t I_AMO_ANDD   = {FU_AMO, AMO_ANDD,    TYPE_R};
-    parameter fuop_t I_AMO_ORD    = {FU_AMO, AMO_ORD,     TYPE_R};
-    parameter fuop_t I_AMO_MIND   = {FU_AMO, AMO_MIND,    TYPE_R};
-    parameter fuop_t I_AMO_MAXD   = {FU_AMO, AMO_MAXD,    TYPE_R};
-    parameter fuop_t I_AMO_MINDU  = {FU_AMO, AMO_MINDU,   TYPE_R};
-    parameter fuop_t I_AMO_MAXDU  = {FU_AMO, AMO_MAXDU,   TYPE_R};
+    parameter fuop_t I_LR_D    = {FU_AMO, AMO_LRD,     TYPE_R};
+    parameter fuop_t I_SC_D    = {FU_AMO, AMO_SCD,     TYPE_R};
+    parameter fuop_t I_AMOSWAP_D  = {FU_AMO, AMO_SWAPD,   TYPE_R};
+    parameter fuop_t I_AMOADD_D   = {FU_AMO, AMO_ADDD,    TYPE_R};
+    parameter fuop_t I_AMOXOR_D   = {FU_AMO, AMO_XORD,    TYPE_R};
+    parameter fuop_t I_AMOAND_D   = {FU_AMO, AMO_ANDD,    TYPE_R};
+    parameter fuop_t I_AMOOR_D    = {FU_AMO, AMO_ORD,     TYPE_R};
+    parameter fuop_t I_AMOMIN_D   = {FU_AMO, AMO_MIND,    TYPE_R};
+    parameter fuop_t I_AMOMAX_D   = {FU_AMO, AMO_MAXD,    TYPE_R};
+    parameter fuop_t I_AMOMINU_D  = {FU_AMO, AMO_MINDU,   TYPE_R};
+    parameter fuop_t I_AMOMAXU_D  = {FU_AMO, AMO_MAXDU,   TYPE_R};
 
     /* RV32F Standard Extension */
     // parameter fuop_t FLD = {FU_LSU, FLD};
