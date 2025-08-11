@@ -11,17 +11,6 @@ module static_decoder #() (
   logic [C::XLEN-1:0] imm;
   logic valid;
 
-  assign si_o.pc     = pc_i;
-  assign si_o.tinst  = data_i;
-  assign si_o.fu     = fuop.fu;
-  assign si_o.op     = fuop.op;
-  // Let's have fast calculation
-  assign si_o.rs1    = data_i[19:15];
-  assign si_o.rs2    = data_i[24:20];
-  assign si_o.rd     = data_i[11:7];
-  assign si_o.imm    = imm;
-  assign si_o.valid  = valid;
-
   always_comb begin : decoder
     fuop = C::I_NOP;
     valid = 1'b1;
@@ -139,5 +128,26 @@ module static_decoder #() (
       end
     endcase
   end
+
+  logic rs1v, rs2v, rdv;
+  assign rs1v = fuop.fmt inside {C::TYPE_R, C::TYPE_I, C::TYPE_S, C::TYPE_B};
+  assign rs2v = fuop.fmt inside {C::TYPE_R, C::TYPE_S, C::TYPE_B};
+  assign rdv  = fuop.fmt inside {C::TYPE_R, C::TYPE_I, C::TYPE_U, C::TYPE_J};
+  // TODO handle special case : shamt and uimm
+
+  assign si_o.pc     = pc_i;
+  assign si_o.tinst  = data_i;
+  assign si_o.fu     = fuop.fu;
+  assign si_o.op     = fuop.op;
+  // Let's have fast calculation
+  assign si_o.rs1    = data_i[19:15];
+  assign si_o.rs2    = data_i[24:20];
+  assign si_o.rd     = data_i[11:7];
+  assign si_o.rs1_valid = rs1v;
+  assign si_o.rs2_valid = rs2v;
+  assign si_o.rd_valid  = rdv;
+  assign si_o.imm    = imm;
+  assign si_o.valid  = valid;
+
 
 endmodule

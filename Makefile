@@ -13,7 +13,7 @@ SRC_DPI := $(wildcard src/core_oracle/*.cc)
 VERILATOR := verilator/bin/verilator
 		SVFLAGS :=  -Wall -Wpedantic \
 	--cc $(SRC_DPI) src/tb.cpp \
-	--CFLAGS "-I$(CURDIR)/src" \
+	--CFLAGS "-I$(CURDIR)/src -g" \
 	--trace \
 	--sv $(SRC) --Wno-DECLFILENAME --timing \
 	--Wno-UNUSEDSIGNAL \

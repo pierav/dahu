@@ -1,7 +1,15 @@
 /* Config file */
 
 package C;
+    parameter int AREG_ID_BITS = 5; // RISC-V constant
+    parameter int PREG_ID_BITS = 4; // User defined
+    parameter int PRFSIZE = 1 << PREG_ID_BITS;
+    parameter int ARFSIZE = 1 << AREG_ID_BITS;
+    
     parameter int XLEN = 64;
+
+    typedef logic [5-1:0] areg_id_t;
+    typedef logic [PREG_ID_BITS-1:0] preg_id_t;
 
     // We use an intermediate representation so as not to
     // manipulate the RISC-V ISA directly.
@@ -229,25 +237,33 @@ package C;
     // parameter fuop_t FSH = {FU_LSU, FSH};
     // parameter fuop_t FSB = {FU_LSU, FSB};
  
-    typedef logic [5-1:0] archreg_index_t;
 
-    typedef struct packed {
+    // unpacked to allow easy DPI
+    typedef struct {
         logic [XLEN-1:0] pc;    // PC of the instruction
         logic [32-1:0]   tinst; // Assembly code
         fu_t             fu;    // functional unit to use
         fu_set_t         op;    // operation to perform
-        archreg_index_t  rs1;   // register source idx
-        archreg_index_t  rs2;   // register source idx
-        archreg_index_t  rd;    // register destination idx
+        areg_id_t        rs1;   // register source idx
+        logic            rs1_valid;
+        areg_id_t        rs2;   // register source idx
+        logic            rs2_valid;
+        areg_id_t        rd;    // register destination idx
+        logic            rd_valid;
         logic [XLEN-1:0] imm;   // imm value
         logic            valid; // Not UNIMP
     } si_t; // StaticInst
 
-    typedef struct packed {
+    typedef struct {
         si_t si;
         logic[20-1:0] id;
         logic fault;
         logic valid;  // is the result valid
+        preg_id_t prs1;
+        logic prs1_renammed;
+        preg_id_t prs2;
+        logic prs2_renammed;
+        preg_id_t prd; // Always renammed 
     } di_t; // DynamicInst
 
 endpackage

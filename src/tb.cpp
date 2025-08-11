@@ -1,6 +1,8 @@
 #include "Vsystem.h"
 #include "Vsystem___024root.h" // ugly bypass
 #include "verilated.h"
+#include "verilated_vcd_c.h"
+
 #include <iostream>
 #include <cstdint>
 #include <chrono>
@@ -13,6 +15,7 @@
 struct args_t {
     bool verbose = false;
     std::string binfile;
+    bool trace = false;
 };
 
 struct OptionHelp {
@@ -26,6 +29,7 @@ static const OptionHelp optionHelp[] = {
     {"verbose", nullptr, 'v', "Enable verbose output"},
     {"bin",     "FILE",  'b', "Binary file"},
     {"help",    nullptr, 'h', "Show this help message"},
+    {"trace",   nullptr, 't', "Enable tracing"}
 };
 
 // TODO: autobuild the long_option
@@ -53,12 +57,9 @@ int parse_args(int argc, char *argv[], args_t &args) {
     int option_index = 0;
     while ((opt = getopt_long(argc, argv, "v:b:h", long_options, &option_index)) != -1) {
         switch (opt) {
-            case 'v':
-                args.verbose = true;
-                break;
-            case 'b':
-                args.binfile = optarg;
-                break;
+            case 'v': args.verbose = true; break;
+            case 'b': args.binfile = optarg; break;
+            case 't': args.trace = 1; break;
             case 'h':
                 printHelp(argv[0]);
                 exit(0);
@@ -114,12 +115,21 @@ int main(int argc, char **argv) {
     
     // Sanity checks
   
-
     tic();
     printf ("V = %d\n", VERILATOR_VERSION_INTEGER);
     Verilated::commandArgs(argc, argv);
+    std::cout << "*** Instanciate top" << std::endl;
     Vsystem* dut = new Vsystem;
 
+    // Enable tracing
+    VerilatedVcdC* tfp = nullptr;
+    if(args.trace){
+        std::cout << "*** Enable tracing" << std::endl;
+        Verilated::traceEverOn(true);
+        tfp = new VerilatedVcdC;
+        dut->trace(tfp, 99);
+        tfp->open("dump.vcd");
+    }
     uint64_t cycles = 0;
     // Signals
     bool clk = true;
@@ -131,12 +141,14 @@ int main(int argc, char **argv) {
     const uint64_t MAX_CYCLES = 10000000;  // max cycles to avoid infinite loop
 
     // Initialise ram
+    std::cout << "*** Instanciate ram" << std::endl;
     char *ram = (char*)RAM_KEY(dut->rootp);
     readBinaryFile(args.binfile, ram, RAM_SIZE);
 
     // for(int i = 0; i < 100; i++){
     //     ram[i] = i;
     // }
+    std::cout << "*** Run simulation" << std::endl;
 
     for (uint64_t i = 1; i < MAX_CYCLES; i++) {
         // Toggle clock every half cycle:
@@ -153,6 +165,9 @@ int main(int argc, char **argv) {
         dut->clk = clk;
         dut->rstn = rstn;
         dut->eval();
+        if(tfp){
+            tfp->dump(i);
+        }
         if(clk){
             Verilated::timeInc(1);
         }
@@ -174,10 +189,12 @@ int main(int argc, char **argv) {
         }
         // Todo heartbeat ?
     }
-
-    delete dut;
     std::cout << "Elapsed " << cycles << " cycles" << std::endl;
     tac();
+    if(tfp){
+        tfp->close();
+    }
+    delete dut;
     return 0;
 }
 

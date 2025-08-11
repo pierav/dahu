@@ -1,10 +1,25 @@
 package handler_pkg;
 
+    // ref to share by pointer
+
+    
     // Decode event
-    import "DPI-C" context function void dpi_instr_decode(
+    import "DPI-C" context function 
+    void dpi_instr_decode(
         input int id,
         input longint unsigned pc,
         input int unsigned inst
+    );
+
+    import "DPI-C" context function
+    void dpi_instr_renamed(
+        input int id,
+        input longint unsigned pc,
+        input int prs1,
+        input int prs1_renammed,
+        input int prs2,
+        input int prs2_renammed,
+        input int prd
     );
 
     // Issue event
