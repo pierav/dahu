@@ -37,6 +37,7 @@ static struct option long_options[] = {
     {"verbose", no_argument,       0, 'v'},
     {"bin",     required_argument, 0, 'b'},
     {"help",    no_argument,       0, 'h'},
+    {"trace",    no_argument,      0, 't'},
     {0, 0, 0, 0} // end marker
 };
 
@@ -59,7 +60,7 @@ int parse_args(int argc, char *argv[], args_t &args) {
         switch (opt) {
             case 'v': args.verbose = true; break;
             case 'b': args.binfile = optarg; break;
-            case 't': args.trace = 1; break;
+            case 't': args.trace = true; break;
             case 'h':
                 printHelp(argv[0]);
                 exit(0);
@@ -107,28 +108,32 @@ void tac(){
 }
 
 int main(int argc, char **argv) {
-    std::cout << "Hello from tb.cpp" << std::endl;
+    std::cout << "*** Hello from tb (src/tb.cpp)" << std::endl;
     
     // Parse args
     args_t args;
     parse_args(argc, argv, args);
-    
+    std::cout << "*** ------------ binary: " << args.binfile << std::endl;
+    std::cout << "*** ----------- tracing: " << args.trace << std::endl;
+    std::cout << "*** - verilator version: " << VERILATOR_VERSION_INTEGER << std::endl;
+
     // Sanity checks
   
     tic();
-    printf ("V = %d\n", VERILATOR_VERSION_INTEGER);
     Verilated::commandArgs(argc, argv);
     std::cout << "*** Instanciate top" << std::endl;
     Vsystem* dut = new Vsystem;
 
     // Enable tracing
+    const char *tracing_file = "dump.vcd";
     VerilatedVcdC* tfp = nullptr;
     if(args.trace){
-        std::cout << "*** Enable tracing" << std::endl;
+        std::cout << "*** Enable tracing ("
+                  << tracing_file << ")" << std::endl;
         Verilated::traceEverOn(true);
         tfp = new VerilatedVcdC;
         dut->trace(tfp, 99);
-        tfp->open("dump.vcd");
+        tfp->open(tracing_file);
     }
     uint64_t cycles = 0;
     // Signals

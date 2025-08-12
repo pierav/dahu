@@ -237,6 +237,12 @@ package C;
     // parameter fuop_t FSH = {FU_LSU, FSH};
     // parameter fuop_t FSB = {FU_LSU, FSB};
  
+    parameter ID_BITS = 20;
+
+    typedef struct {
+        logic [XLEN-1:0] pc;    // PC of the instruction
+        logic [32-1:0]   data;  // Assembly code
+    } fetch_data_t;
 
     // unpacked to allow easy DPI
     typedef struct {
@@ -256,7 +262,7 @@ package C;
 
     typedef struct {
         si_t si;
-        logic[20-1:0] id;
+        logic[ID_BITS-1:0] id;
         logic fault;
         logic valid;  // is the result valid
         preg_id_t prs1;
@@ -265,5 +271,16 @@ package C;
         logic prs2_renammed;
         preg_id_t prd; // Always renammed 
     } di_t; // DynamicInst
+
+    typedef struct {
+        logic [XLEN-1:0]   pc;    // PC of the instruction
+        logic[ID_BITS-1:0] id;    // Used to track ordering
+        preg_id_t          prd;   // Where to wb inst
+        logic[XLEN-1:0]    rs1val;
+        logic[XLEN-1:0]    rs2val;
+        logic[XLEN-1:0]    imm;
+        fu_t               fu;    // functional unit to use
+        fu_set_t           op;    // operation to perform
+    } fu_input_t;
 
 endpackage

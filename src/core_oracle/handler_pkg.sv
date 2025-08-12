@@ -2,7 +2,9 @@ package handler_pkg;
 
     // ref to share by pointer
 
-    
+    import "DPI-C" context function void dpi_monitor_init();
+    import "DPI-C" context function void dpi_tick();
+
     // Decode event
     import "DPI-C" context function 
     void dpi_instr_decode(
@@ -42,5 +44,6 @@ package handler_pkg;
         input int id,
         input longint unsigned pc
     );
+
 
 endpackage

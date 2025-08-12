@@ -3,9 +3,14 @@ import C::*;
 module rename #() (
     input clk,
     input rstn,
-    input di_t di_i,
-    output di_t di_o,
-    output logic di_o_valid
+    input di_t di_i,        // Instruction to process
+    input logic di_i_valid,  // Instruction to process is here
+    output logic di_i_ready, // Ready to decode new one
+    
+    output di_t di_o,        // The renammed instruction 
+    output logic di_o_valid, // The instruction is renammed
+    input logic di_o_ready   // The next stage is ready
+
 );
 
     /* Rename Map Table */ 
@@ -76,7 +81,7 @@ module rename #() (
     assign free = 1'b0;
 
     /* Rename -> Allocator */
-    assign allocate = can_allocate && di_i.si.rd_valid;
+    assign allocate = di_i_valid && can_allocate && di_i.si.rd_valid;
 
     /* Allocator -> RMT */
     assign rmt_write = allocated_preg;
@@ -97,6 +102,11 @@ module rename #() (
     assign di_o.prs2            = rmt_reads[1];
     assign di_o.prs2_renammed   = rmt_reads_valid[1];
     assign di_o.prd             = allocated_preg;
-    assign di_o_valid           = !(di_i.si.rd_valid) || can_allocate;
+
+    logic stall;
+    assign stall = di_i_valid && di_i.si.rd_valid && !can_allocate;
+    /* Ready valid */
+    assign di_i_ready = di_o_ready && !stall;
+    assign di_o_valid = di_i_valid && !stall; // TODO clked
 endmodule
 

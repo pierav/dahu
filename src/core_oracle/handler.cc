@@ -30,8 +30,10 @@ StaticInst* decode(uint32_t inst){
 uint64_t cycle = 0;
 
 struct DynamicInst {
+    uint64_t id;
     xlen_t pc;
     StaticInst *si = nullptr;
+    
 
     // Rename stage
     bool renammed = false;
@@ -41,17 +43,22 @@ struct DynamicInst {
     bool prs2_renammed;
     int prd;
 
+    // issue stage
+    bool issued = false;
     xlen_t rs1val;
     xlen_t rs2val;
     xlen_t rs3val;
+
+    // Ex stage
+    bool executed = false;
     xlen_t rdval;
 
-    bool issued;
-    bool committed;
+    // Commit stage
+    bool committed = false;
 
     DynamicInst() {};
-    DynamicInst(xlen_t pc_, uint32_t inst) :
-        pc(pc_), si(decode(inst)){};
+    DynamicInst(uint64_t id_, xlen_t pc_, uint32_t inst) :
+        id(id_), pc(pc_), si(decode(inst)){};
 
     void dumpreg(std::ostream &os, std::string areg,
         int preg, int renammed) const {
@@ -67,8 +74,9 @@ struct DynamicInst {
     }
 
     std::ostream& dump(std::ostream& os) const {
-        os << std::setw(16) << std::right << cycle << ": "
-           << std::setw(16) <<  std::setfill(' ') << std::hex << pc << ": "
+        os << std::setw(16) << std::setfill('0') << std::right << cycle << ": "
+           << std::setw(16) << std::setfill(' ') << std::hex << pc << ": "
+           << "(sn:" << id << ") "
            << "(" << std::setw(8) << std::setfill('0') << std::hex << si->instr << ") "
            << std::dec << std::setfill(' ') << si->getDisas();
         if (renammed) {
@@ -79,9 +87,17 @@ struct DynamicInst {
             os << " <- ";
             if(si->nr_src >= 1){
                 dumpreg(os, si->rs1(), prs1, prs1_renammed);
+                if(issued){
+                    os << ":" << std::setw(16) <<  std::setfill(' ') << std::hex
+                       << rs1val;
+                }
             }
             if(si->nr_src >= 2){
                 dumpreg(os, si->rs2(), prs2, prs2_renammed);
+                if(issued){
+                    os << ":" << std::setw(16) <<  std::setfill(' ') << std::hex
+                       << rs2val;
+                }
             }
             os << " ]";
         }
@@ -129,6 +145,26 @@ DynamicInst &getInst(int id, uint64_t pc){
 //     int         prd;
 // };
 
+
+extern "C" void dpi_monitor_init() {
+    std::cout << "*** Hello for dpi (src/core_oracle/handle.cc)" << std::endl;
+    inflight[0].id = -1;
+}
+
+// Decode event
+extern "C" void dpi_instr_decode(int id, uint64_t pc, uint32_t instr) {
+    if(inflight[id % MAX_INST_IDS].id == id){ // Already inserted
+        return;
+    }
+    DynamicInst di = DynamicInst(id, pc, instr);
+    inflight[id] = di;
+    std::cout << "DEC:" << di << std::endl;
+    if(!di.si->isInst()){
+        std::cout << "Not a valid inst\n";
+        exit(1);
+    }
+}
+
 extern "C" void dpi_instr_renamed(
     int id, uint64_t pc,
     int prs1,
@@ -139,34 +175,33 @@ extern "C" void dpi_instr_renamed(
 ){
     // std::cout << id << " rd:" << prd << " " << prs1 << " " << prs2 << std::endl;
     DynamicInst &inst = getInst(id, pc);
+    if(inst.renammed){
+        return;
+    }
     inst.renammed = true;
     inst.prd = prd;
     inst.prs1 = prs1;
     inst.prs1_renammed = prs1_renammed;
     inst.prs2 = prs2;
     inst.prs2_renammed = prs2_renammed;
-    std::cout << inst << std::endl;
+    std::cout << "REN:" << inst << std::endl;
 }
 
-extern "C" void dpi_monitor_init() {}
-
-// Decode event
-extern "C" void dpi_instr_decode(int id, uint64_t pc, uint32_t instr) {
-    DynamicInst di = DynamicInst(pc, instr);
-    inflight[id] = di;
-    std::cout << di << std::endl;
-    if(!di.si->isInst()){
-        std::cout << "Not a valid inst\n";
-        exit(1);
-    }
-}
-
-// Issue event
-extern "C" void dpi_instr_issue(int id, uint64_t pc, uint64_t rs1val, uint64_t rs2val, uint64_t rs3val) {
+// Issue event TODO FMA
+extern "C" void dpi_instr_issue(
+    int id, uint64_t pc,
+    uint64_t rs1val,
+    uint64_t rs2val
+) {
     DynamicInst &inst = getInst(id, pc);
+    if(inst.issued){
+        return;
+    }
+    inst.issued = true;
     inst.rs1val = rs1val;
     inst.rs2val = rs2val;
-    inst.rs3val = rs3val;
+    inst.rs3val = 0;
+    std::cout << "ISS:" << inst << std::endl;
 }
 
 // Write-Back event
@@ -183,4 +218,7 @@ extern "C" void dpi_instr_commit(int id, uint64_t pc) {
 // Handle time locally
 extern "C" void dpi_tick() {
     cycle++;
+    std::cout << "------------ cycle " 
+              << cycle 
+              << " -----------" << std::endl;
 }

@@ -13,16 +13,18 @@ module system #() (
 
   parameter unsigned ADDR_WIDTH = 20;
   
-  logic fetch_addr_valid, fetch_data_valid;
-
+  logic fetch_addr_valid, fetch_addr_ready;
+  logic fetch_data_valid, fetch_data_ready;
+   
   core #() core (
     .clk(clk),
     .rstn(rstn),
-    .fetch_addr_ready(1'b1),
+    .fetch_addr_ready(fetch_addr_ready),
     .fetch_addr_valid(fetch_addr_valid),
     .fetch_addr(fetch_addr),
     .fetch_data_valid(fetch_data_valid),
     .fetch_data(fetch_data),
+    .fetch_data_ready(fetch_data_ready),
     .exit_o(exit_o),
     .exit_code_o(exit_code_o)
   );
@@ -38,12 +40,14 @@ module system #() (
     .wdata(32'b0),
     .rdata(fetch_data)
   );
-  // SRAM always valid
+  // SRAM always valid (1 cycle latency)
   always_ff @(posedge clk) begin
     if(!rstn) begin
       fetch_data_valid <= 0;
+      fetch_addr_ready <= 0;
     end else  begin
       fetch_data_valid <= fetch_addr_valid;
+      fetch_addr_ready <= 1'b1; // Sram always realy
     end
   end
 

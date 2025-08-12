@@ -5,7 +5,7 @@ module dynamic_decoder #() (
     input rstn,
 
     input si_t si_i,
-    input logic input_ready_i,
+    input logic si_i_valid,
 
     /* Csr flags */
     input RV::xs_t fs_i,
@@ -17,19 +17,18 @@ module dynamic_decoder #() (
     input logic debug_mode_i,
   
     output di_t di_o,
-    output logic output_valid_o
+    input logic di_o_ready
 );
   logic[20-1:0] cpt;
   logic isfault;
 
-  assign output_valid_o = input_ready_i;
   assign di_o.si = si_i;
   assign di_o.valid = 1'b0;
   assign di_o.id = cpt;
   assign di_o.fault = isfault;
   
   always_ff @(posedge clk) begin
-    if(input_ready_i) begin
+    if(si_i_valid && di_o_ready) begin
       cpt <= cpt + 1;
     end
   end

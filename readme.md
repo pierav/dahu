@@ -13,6 +13,7 @@ use `-march=rv64imafd_zicsr_zifencei`
 # HW TODO
 
 * Exception/IT/DebugMode at commit or at decode ? 
+* How to wakeup stages ? Global R/V or Iterative R/V or skid/fifo buffer ?
 
 # SW TODO
 
