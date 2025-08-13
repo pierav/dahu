@@ -1,6 +1,6 @@
 import C::*;
 
-module issue #() (
+module iew #() (
     input clk,
     input rstn,
     // From rename stage
@@ -10,12 +10,16 @@ module issue #() (
     // To ex stage
     output fu_input_t fuinput_o,
     output logic fuinput_o_valid,
-    input logic fuinput_o_ready
+    input fu_bitvector_t fuinput_o_ready,
+    // From ex stage
+    input fu_output_t    bypass_fuoutput_i[NR_WB_PORTS],
+    input wb_bitvector_t bypass_fuoutput_i_valid,
+    input fu_output_t    fuoutput_i[NR_WB_PORTS],
+    input wb_bitvector_t fuoutput_i_valid
 );
     // TODO 0: Handle many write backs
     // TODO 1: Bancked PRF ?
     parameter int NREAD = 2;
-    parameter int NR_WB_PORTS = 1;
     // Write ports
     logic [NR_WB_PORTS-1:0]                   prf_we;
     logic [NR_WB_PORTS-1:0][PREG_ID_BITS-1:0] prf_waddr;
@@ -40,7 +44,6 @@ module issue #() (
 
 
     // Write ports
-    parameter int NR_COMMIT_PORTS = 1;
     logic [NR_COMMIT_PORTS-1:0]                   arf_we;
     logic [NR_COMMIT_PORTS-1:0][AREG_ID_BITS-1:0] arf_waddr;
     logic [NR_COMMIT_PORTS-1:0][XLEN-1:0]         arf_wdata;
@@ -86,7 +89,6 @@ module issue #() (
         .rdata(sb_rdata)
     );
 
-
     /* Read Scoreboard, PRF and ARF */
     assign sb_raddr[0] = di_i.prs1;
     assign sb_raddr[1] = di_i.prs2;
@@ -101,13 +103,16 @@ module issue #() (
     always_comb begin : read_operands
         // rs1: default is valid
         rs1val = 0;
-        rs1val_valid = 1'b1; 
-        if(di_i.si.rs1_valid) begin // is reg used ? 
-            // if (di_i.use_imm) begin // TODO UIMM
-            //     rs1val = di_i.imm;
-            //     rs1val_valid = 1'b1;
-            // end else 
-            if (di_i.prs1_renammed) begin // PRF if bypasss
+        rs1val_valid = 1'b1;
+        if(di_i.si.rs1_valid) begin // is reg used ?
+            if(di_i.si.fu == FU_ALU && di_i.si.op == AUIPC) begin 
+                rs1val = di_i.si.pc;
+                rs1val_valid = 1'b1;
+            end else if (di_i.si.use_uimm) begin
+                rs1val = XLEN'(di_i.si.rs1);
+                rs1val_valid = 1'b1;
+            end
+            else if (di_i.prs1_renammed) begin // PRF if bypasss
                 rs1val = prf_rdata[0];
                 rs1val_valid = sb_rdata[0];
             end else begin // ARF otherwise
@@ -119,10 +124,7 @@ module issue #() (
         rs2val = 0;
         rs2val_valid = 1'b1; 
         if(di_i.si.rs2_valid) begin // is reg used ? 
-            // if (di_i.use_imm) begin // TODO UIMM
-            //     rs2val = di_i.imm;
-            //     rs2val_valid = 1'b1;
-            // end else 
+            // Let shamt as pure IMM
             if (di_i.prs2_renammed) begin // PRF if bypasss
                 rs2val = prf_rdata[1];
                 rs2val_valid = sb_rdata[1];
@@ -132,12 +134,13 @@ module issue #() (
             end
         end
     end
-    
+
     logic ro_valid, serialisation_valid, fu_valid;
 
     assign ro_valid = rs1val_valid && rs2val_valid;
     assign serialisation_valid = 1'b1; // TODO
-    assign fu_valid = 1'b1; // TODO
+
+    assign fu_valid = fuinput_o_ready[di_i.si.fu];
 
     /* Final output */
     assign fuinput_o.pc         = di_i.si.pc;
@@ -148,7 +151,7 @@ module issue #() (
     assign fuinput_o.imm        = di_i.si.imm;
     assign fuinput_o.fu         = di_i.si.fu;
     assign fuinput_o.op         = di_i.si.op;
-    
+
     logic nostall;
     assign nostall = !di_i_valid ||
                      (di_i_valid &&
@@ -157,7 +160,7 @@ module issue #() (
                      serialisation_valid);
 
     assign fuinput_o_valid      = di_i_valid && nostall;
-    assign di_i_ready           = fuinput_o_ready && nostall;
+    assign di_i_ready           = nostall;
 
     always_ff @(posedge clk) begin 
         if(di_i_valid && !nostall) begin

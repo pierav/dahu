@@ -8,6 +8,10 @@ package C;
     
     parameter int XLEN = 64;
 
+    parameter int NR_WB_PORTS = 1;
+    parameter int NR_COMMIT_PORTS = 1;
+
+
     typedef logic [5-1:0] areg_id_t;
     typedef logic [PREG_ID_BITS-1:0] preg_id_t;
 
@@ -15,16 +19,12 @@ package C;
     // manipulate the RISC-V ISA directly.
     // Each functional unit is associated with a set of operations.
     
-    // All the functional units
-    typedef enum logic [3:0] {
-        FU_NONE, FU_LSU, FU_AMO, FU_ALU, FU_CTRL, FU_MUL,
-        FU_DIV, FU_CSR, FU_FPU
-    } fu_t;
 
     // TODO use a width + sign bit in decoded instruction 
     // to avoid variant encoded in fu op set
 
-    typedef enum logic [4:0] {
+    parameter NB_BITS_FU_OP = 5;
+    typedef enum logic [NB_BITS_FU_OP-1:0] {
         NOP,
         MRET, SRET, DRET,
         ECALL, EBREAK,
@@ -33,12 +33,12 @@ package C;
         CSR_WRITE, CSR_READ, CSR_SET, CSR_CLEAR
     } none_set_t;
 
-    typedef enum logic [4:0] {
+    typedef enum logic [NB_BITS_FU_OP-1:0] {
         LD, SD, LW, LWU, SW, LH, LHU, SH, LB, SB, LBU,
         FLD, FLW, FLH, FLB, FSD, FSW, FSH, FSB
     } lsu_set_t;
 
-    typedef enum logic [4:0] {
+    typedef enum logic [NB_BITS_FU_OP-1:0] {
         AMO_LRW, AMO_LRD, AMO_SCW, AMO_SCD,
         AMO_SWAPW, AMO_SWAPD,
         AMO_ADDW, AMO_ANDW, AMO_ORW, AMO_XORW,
@@ -47,7 +47,7 @@ package C;
         AMO_MAXD, AMO_MAXDU, AMO_MIND, AMO_MINDU
     } amo_set_t;
 
-    typedef enum logic [4:0] {
+    typedef enum logic [NB_BITS_FU_OP-1:0] {
         ADD, SUB, ADDW, SUBW,
         XOR, OR, AND, 
         SRA, SRL, SLL, SRLW, SLLW, SRAW,
@@ -55,22 +55,22 @@ package C;
         SLT, SLTU
     } alu_set_t;
 
-    typedef enum logic [4:0] {
+    typedef enum logic [NB_BITS_FU_OP-1:0] {
         JAL,
         JALR,
         BRANCH,
         BLT, BLTU, BGE, BGEU, BEQ, BNE
     } ctrl_set_t;
 
-    typedef enum logic [4:0] {
+    typedef enum logic [NB_BITS_FU_OP-1:0] {
         MUL, MULH, MULHU, MULHSU, MULW
     } mul_set_t;
 
-    typedef enum logic [4:0] {
+    typedef enum logic [NB_BITS_FU_OP-1:0] {
         DIV, DIVU, DIVW, DIVUW, REM, REMU, REMW, REMUW
-    } div_set_t;    
+    } div_set_t;
 
-    typedef enum logic [4:0] { 
+    typedef enum logic [NB_BITS_FU_OP-1:0] { 
         FADD, FSUB, FMUL, FDIV, FMIN_MAX, FSQRT, FMADD, FMSUB, FNMSUB, FNMADD,
         FCVT_F2I, FCVT_I2F, FCVT_F2F, FSGNJ, FMV_F2X, FMV_X2F,
         FCMP, FCLASS
@@ -87,18 +87,30 @@ package C;
         fpu_set_t fpu;
     } fu_set_t;
 
+    // All the functional units
+    typedef enum {
+        FU_NONE, FU_LSU, FU_AMO, FU_ALU,
+        FU_CTRL, FU_MUL,
+        FU_DIV, FU_CSR, FU_FPU
+    } fu_t;
+
+    parameter int NB_FU = 9;
+
+    // Create bit vectors typedef to avoid unpacked bit array
+    typedef logic[NB_FU-1:0] fu_bitvector_t;
+    typedef logic[NR_WB_PORTS-1:0] wb_bitvector_t;
+
     // TODO create fmt for Ecall and Fence ? 
 
-    typedef enum {
+    typedef enum logic [3-1:0] {
         TYPE_R,
         TYPE_I,
         TYPE_S,
         TYPE_B,
         TYPE_U,
         TYPE_J, 
-        TYPE_Shamt20_24,
-        TYPE_Shamt20_25,
-        TYPE_CSRUimm
+        TYPE_SHAMT,
+        TYPE_I_AND_UIMM
     } inst_fmt_t;
 
    typedef struct packed {
@@ -162,13 +174,13 @@ package C;
     parameter fuop_t I_LWU    = {FU_LSU,    LWU,    TYPE_I};
     parameter fuop_t I_LD     = {FU_LSU,    LD,     TYPE_I};
     parameter fuop_t I_SD     = {FU_LSU,    SD,     TYPE_S};
-    parameter fuop_t I_SLLI   = {FU_ALU,    SLL,    TYPE_Shamt20_25};
-    parameter fuop_t I_SRLI   = {FU_ALU,    SRL,    TYPE_Shamt20_25};
-    parameter fuop_t I_SRAI   = {FU_ALU,    SRA,    TYPE_Shamt20_25};
+    parameter fuop_t I_SLLI   = {FU_ALU,    SLL,    TYPE_SHAMT};
+    parameter fuop_t I_SRLI   = {FU_ALU,    SRL,    TYPE_SHAMT};
+    parameter fuop_t I_SRAI   = {FU_ALU,    SRA,    TYPE_SHAMT};
     parameter fuop_t I_ADDIW  = {FU_ALU,    ADDW,   TYPE_I};
-    parameter fuop_t I_SLLIW  = {FU_ALU,    SLLW,   TYPE_Shamt20_24};
-    parameter fuop_t I_SRLIW  = {FU_ALU,    SRLW,   TYPE_Shamt20_24};
-    parameter fuop_t I_SRAIW  = {FU_ALU,    SRAW,   TYPE_Shamt20_24};
+    parameter fuop_t I_SLLIW  = {FU_ALU,    SLLW,   TYPE_SHAMT};
+    parameter fuop_t I_SRLIW  = {FU_ALU,    SRLW,   TYPE_SHAMT};
+    parameter fuop_t I_SRAIW  = {FU_ALU,    SRAW,   TYPE_SHAMT};
     parameter fuop_t I_ADDW   = {FU_ALU,    ADDW,   TYPE_R};
     parameter fuop_t I_SUBW   = {FU_ALU,    SUBW,   TYPE_R};
     parameter fuop_t I_SLLW   = {FU_ALU,    SRLW,   TYPE_R};
@@ -176,16 +188,16 @@ package C;
     parameter fuop_t I_SRAW   = {FU_ALU,    SRAW,   TYPE_R};
 
     /* RV32/RV64 Zifencei Standard Extension */
-    parameter fuop_t I_FENCE_I = {FU_NONE,  FENCE_I, TYPE_I};
+    parameter fuop_t I_FENCE_I = {FU_NONE,   FENCE_I,   TYPE_I};
 
     /* RV32/RV64 Zicsr Standard Extension */
     parameter fuop_t I_CSRRW  = {FU_NONE,    CSR_WRITE,  TYPE_R};
     parameter fuop_t I_CSRRS  = {FU_NONE,    CSR_SET,    TYPE_R};
     parameter fuop_t I_CSRRC  = {FU_NONE,    CSR_CLEAR,  TYPE_R};
-    parameter fuop_t I_CSRRWI = {FU_NONE,    CSR_WRITE,  TYPE_CSRUimm};
-    parameter fuop_t I_CSRRSI = {FU_NONE,    CSR_SET,    TYPE_CSRUimm};
-    parameter fuop_t I_CSRRCI = {FU_NONE,    CSR_CLEAR,  TYPE_CSRUimm};
-    
+    parameter fuop_t I_CSRRWI = {FU_NONE,    CSR_WRITE,  TYPE_I_AND_UIMM};
+    parameter fuop_t I_CSRRSI = {FU_NONE,    CSR_SET,    TYPE_I_AND_UIMM};
+    parameter fuop_t I_CSRRCI = {FU_NONE,    CSR_CLEAR,  TYPE_I_AND_UIMM};
+
     /* RV32/RV64 M Standard Extension */
     parameter fuop_t I_MUL    = {FU_MUL,     MUL,         TYPE_R};
     parameter fuop_t I_MULH   = {FU_MUL,     MULH,        TYPE_R};
@@ -202,8 +214,8 @@ package C;
     parameter fuop_t I_REMUW  = {FU_DIV,     REMUW,       TYPE_R};
 
     /* RV32A Standard Extension */
-    parameter fuop_t I_LR_W    = {FU_AMO, AMO_LRW,     TYPE_R};
-    parameter fuop_t I_SC_W    = {FU_AMO, AMO_SCW,     TYPE_R};
+    parameter fuop_t I_LR_W       = {FU_AMO, AMO_LRW,     TYPE_R};
+    parameter fuop_t I_SC_W       = {FU_AMO, AMO_SCW,     TYPE_R};
     parameter fuop_t I_AMOSWAP_W  = {FU_AMO, AMO_SWAPW,   TYPE_R};
     parameter fuop_t I_AMOADD_W   = {FU_AMO, AMO_ADDW,    TYPE_R};
     parameter fuop_t I_AMOAND_W   = {FU_AMO, AMO_ANDW,    TYPE_R};
@@ -257,6 +269,7 @@ package C;
         areg_id_t        rd;    // register destination idx
         logic            rd_valid;
         logic [XLEN-1:0] imm;   // imm value
+        logic            use_uimm; // Use rs1 as uimm value
         logic            valid; // Not UNIMP
     } si_t; // StaticInst
 
@@ -272,7 +285,9 @@ package C;
         preg_id_t prd; // Always renammed 
     } di_t; // DynamicInst
 
-    typedef struct {
+    /* Packed everything to make verilator happy */
+
+    typedef struct packed {
         logic [XLEN-1:0]   pc;    // PC of the instruction
         logic[ID_BITS-1:0] id;    // Used to track ordering
         preg_id_t          prd;   // Where to wb inst
@@ -282,5 +297,13 @@ package C;
         fu_t               fu;    // functional unit to use
         fu_set_t           op;    // operation to perform
     } fu_input_t;
+
+    typedef struct packed {
+        logic [XLEN-1:0]   pc;    // PC of the instruction (Debug only ?)
+        logic[ID_BITS-1:0] id;    // Wakeup rob
+        preg_id_t          prd;   // Where to wb inst
+        logic[XLEN-1:0]    rdval;    // Final result
+    } fu_output_t;
+
 
 endpackage

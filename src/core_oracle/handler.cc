@@ -53,6 +53,9 @@ struct DynamicInst {
     bool executed = false;
     xlen_t rdval;
 
+    // Writeback
+    bool writeback = false;
+
     // Commit stage
     bool committed = false;
 
@@ -83,19 +86,23 @@ struct DynamicInst {
             os << '[';
             if(si->nr_dst){
                 dumpreg(os, si->rd(), prd, true);
+                if(writeback){
+                    os << ":" << std::setw(16) << std::setfill('0') << std::hex
+                       << rdval;
+                }
             }
             os << " <- ";
             if(si->nr_src >= 1){
                 dumpreg(os, si->rs1(), prs1, prs1_renammed);
                 if(issued){
-                    os << ":" << std::setw(16) <<  std::setfill(' ') << std::hex
+                    os << ":" << std::setw(16) << std::setfill('0') << std::hex
                        << rs1val;
                 }
             }
             if(si->nr_src >= 2){
                 dumpreg(os, si->rs2(), prs2, prs2_renammed);
                 if(issued){
-                    os << ":" << std::setw(16) <<  std::setfill(' ') << std::hex
+                    os << ":" << std::setw(16) << std::setfill('O') << std::hex
                        << rs2val;
                 }
             }
@@ -205,9 +212,18 @@ extern "C" void dpi_instr_issue(
 }
 
 // Write-Back event
-extern "C" void dpi_instr_writeback(int id, uint64_t pc, uint64_t rdval){
+extern "C" void dpi_instr_writeback(
+    int id,
+    uint64_t pc,
+    uint64_t rdval
+){
     DynamicInst &inst = getInst(id, pc);
+    if(inst.writeback){
+        return;
+    }
+    inst.writeback = true;
     inst.rdval = rdval;
+    std::cout << "W-B:" << inst << std::endl;
 }
 
 // Commit event

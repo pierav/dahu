@@ -1,0 +1,79 @@
+import C::*;
+
+module fus #() (
+    input logic clk,
+    input logic rstn,
+    // From issue stage
+    input fu_input_t fuinput_i,
+    input logic fuinput_i_valid,
+    output fu_bitvector_t fuinput_i_ready,
+    // Write back
+    output fu_output_t    fuoutput_o[NR_WB_PORTS],
+    output wb_bitvector_t fuoutput_o_valid
+);
+
+    fu_input_t      fu_inputs[NB_FU];
+    fu_bitvector_t  fu_inputs_readys;
+    fu_bitvector_t  fu_inputs_valids;
+
+    fu_output_t     fu_outputs[NB_FU];
+    fu_bitvector_t  fu_outputs_valids;
+
+
+    // assign the instruction to the corresponding FU
+    // TODO chandle mulitple ALU and multiple ISSUE
+    // TODO perform port allocation at issue ?
+    always_comb begin
+        for (int fu_idx = 0; fu_idx < NB_FU; fu_idx++) begin
+            if(fuinput_i.fu == fu_t'(fu_idx)) begin
+                fu_inputs[fu_idx] = fuinput_i;
+                fu_inputs_valids[fu_idx] = fuinput_i_valid;
+            end else begin
+                fu_inputs[fu_idx] = '0;
+                fu_inputs_valids[fu_idx] = '0;
+            end
+        end
+    end
+
+
+    fu_alu #() fu_alu (
+        .clk(clk),
+        .rstn(rstn),
+        .fuinput_i(fu_inputs[FU_ALU]),
+        .fuoutput_o(fu_outputs[FU_ALU])
+    );
+    assign fu_inputs_readys[FU_ALU] = '1; // Always ready
+    assign fu_outputs_valids[FU_ALU] = fu_inputs_valids[FU_ALU];
+
+
+    /* TODO IMPLEMENT */
+    /* FU STUBS */
+    always_comb begin
+        for (int fu_idx = 0; fu_idx < NB_FU; fu_idx++) begin
+            if(fu_t'(fu_idx) != FU_ALU) begin
+                fu_inputs_readys[fu_idx] = '0; // Not ready
+                fu_outputs_valids[fu_idx] = '0; // No results
+                fu_outputs[fu_idx] = '0;
+            end
+        end
+    end
+    /* Write back */
+    // How do we handle multiple write-backs? (FU)
+    // -1) 1 port per group (reduce drasticly the performance)
+    // 0) 1wb per fu (cannot scale)
+    // 1) Completion buffers (costly)
+    // 2) Do we need to buffer ("can") the result for instructions with latency > 1?
+    // Does the FU already have this buffer?
+    // Do we simply repeat iteration n in a loop?
+    // We can stall the port for FUs with latency 1.
+    // 3) Systolic buffer ?
+
+    // For now 1 FU -> 1WB port
+    assign fuoutput_o[0] = fu_outputs[FU_ALU];
+    assign fuoutput_o_valid[0] = fu_outputs_valids[FU_ALU];
+
+    // Send issue reayd funcs units
+    assign fuinput_i_ready = fu_inputs_readys;
+
+endmodule
+

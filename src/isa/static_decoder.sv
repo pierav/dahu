@@ -105,11 +105,18 @@ module static_decoder #() (
     endcase
   end
   
+  logic use_uimm;
+
   always_comb begin : compute_imm
     // select immediate
+    use_uimm = 0;
     case (fuop.fmt)
       C::TYPE_I: begin
         imm = {{XLEN - 12{data_i[31]}}, data_i[31:20]};
+      end
+      C::TYPE_I_AND_UIMM: begin /* CSR + uimm */
+        imm = {{XLEN - 12{data_i[31]}}, data_i[31:20]};
+        use_uimm = 1;
       end
       C::TYPE_S: begin
         imm = {{XLEN - 12{data_i[31]}}, data_i[31:25], data_i[11:7]};
@@ -123,6 +130,9 @@ module static_decoder #() (
       C::TYPE_J: begin
         imm  = {{XLEN - 20{data_i[31]}}, data_i[19:12], data_i[20], data_i[30:21],  1'b0};
       end
+      C::TYPE_SHAMT: begin // Shift ammount
+        imm =  XLEN'({data_i[25:20]});
+      end
       default: begin
         imm  = {XLEN{1'b0}};
       end
@@ -135,19 +145,19 @@ module static_decoder #() (
   assign rdv  = fuop.fmt inside {C::TYPE_R, C::TYPE_I, C::TYPE_U, C::TYPE_J};
   // TODO handle special case : shamt and uimm
 
-  assign si_o.pc     = pc_i;
-  assign si_o.tinst  = data_i;
-  assign si_o.fu     = fuop.fu;
-  assign si_o.op     = fuop.op;
-  // Let's have fast calculation
-  assign si_o.rs1    = data_i[19:15];
-  assign si_o.rs2    = data_i[24:20];
-  assign si_o.rd     = data_i[11:7];
+  assign si_o.pc        = pc_i;
+  assign si_o.tinst     = data_i;
+  assign si_o.fu        = fuop.fu;
+  assign si_o.op        = fuop.op;
+  assign si_o.rs1       = data_i[19:15]; // Let's have fast calculation
+  assign si_o.rs2       = data_i[24:20];
+  assign si_o.rd        = data_i[11:7];
   assign si_o.rs1_valid = rs1v;
   assign si_o.rs2_valid = rs2v;
   assign si_o.rd_valid  = rdv;
-  assign si_o.imm    = imm;
-  assign si_o.valid  = valid;
+  assign si_o.imm       = imm;
+  assign si_o.use_uimm  = use_uimm; // need use_pc ?
+  assign si_o.valid     = valid;
 
 
 endmodule

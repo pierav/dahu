@@ -37,16 +37,25 @@ module core #() (
     logic rename_di_o_ready; // The next stage is ready
 
     /* Issue */
-    di_t issue_di_i;
-    logic issue_di_i_valid;
-    logic issue_di_i_ready;
-    fu_input_t issue_fuinput_o;
-    logic issue_fuinput_o_valid;
-    logic issue_fuinput_o_ready;
+    di_t            issue_di_i;
+    logic           issue_di_i_valid;
+    logic           issue_di_i_ready;
+    fu_input_t      issue_fuinput_o;
+    logic           issue_fuinput_o_valid;
+    fu_bitvector_t  issue_fuinput_o_ready;
     
     /* Execute stage */
-    logic execute_fuinput_i_ready;
-    assign execute_fuinput_i_ready = 1'b1; // TODO fake stage
+    fu_input_t      execute_fuinput_i;
+    logic           execute_fuinput_i_valid;
+    fu_bitvector_t  execute_fuinput_i_ready;
+    fu_output_t     execute_fuoutput_o[NR_WB_PORTS];
+    wb_bitvector_t  execute_fuoutput_o_valid;
+
+    /* Write back */
+    fu_output_t     wb_bypass_fuoutput_i[NR_WB_PORTS];
+    wb_bitvector_t  wb_bypass_fuoutput_i_valid;
+    fu_output_t     wb_fuoutput_i[NR_WB_PORTS];
+    wb_bitvector_t  wb_fuoutput_i_valid;
 
     // Pipeline stages handle
     /* Fetch -> decode */
@@ -59,10 +68,15 @@ module core #() (
     di_t ren2issue_di_q, ren2issue_di_d;
     logic ren2issue_di_valid_q, ren2issue_di_valid_d;
     /* Issue -> Execute */
-    fu_input_t issue2execute_fuinput_q, issue2execute_fuinput_d;
-    logic issue2execute_fuinput_valid_q,
-          issue2execute_fuinput_valid_d;
-
+    fu_input_t  issue2execute_fuinput_q,
+                issue2execute_fuinput_d;
+    logic       issue2execute_fuinput_valid_q,
+                issue2execute_fuinput_valid_d;
+    /* Execute -> Writeback */
+    fu_output_t    execute2wb_fuoutput_q[NR_WB_PORTS],
+                   execute2wb_fuoutput_d[NR_WB_PORTS];
+    wb_bitvector_t execute2wb_fuoutput_valid_q,
+                   execute2wb_fuoutput_valid_d;
 
     // Forward pipe regs input
     assign if2dec_d = fetch_o;
@@ -73,15 +87,20 @@ module core #() (
     assign ren2issue_di_valid_d = rename_di_o_valid;
     assign issue2execute_fuinput_d = issue_fuinput_o;
     assign issue2execute_fuinput_valid_d = issue_fuinput_o_valid;
+    assign execute2wb_fuoutput_d = execute_fuoutput_o;
+    assign execute2wb_fuoutput_valid_d = execute_fuoutput_o_valid;
 
     // Forward Stage inputs
-    assign decode_in_i = if2dec_q;
-    assign decode_in_i_valid = if2dec_valid_q;
-    assign rename_di_i = dec2ren_di_q; 
-    assign rename_di_i_valid = dec2ren_di_valid_q;
-    assign issue_di_i = ren2issue_di_q;
-    assign issue_di_i_valid = ren2issue_di_valid_q;
-    // assign execute... // TODO exe stage
+    assign decode_in_i             = if2dec_q;
+    assign decode_in_i_valid       = if2dec_valid_q;
+    assign rename_di_i             = dec2ren_di_q; 
+    assign rename_di_i_valid       = dec2ren_di_valid_q;
+    assign issue_di_i              = ren2issue_di_q;
+    assign issue_di_i_valid        = ren2issue_di_valid_q;
+    assign execute_fuinput_i       = issue2execute_fuinput_q;
+    assign execute_fuinput_i_valid = issue2execute_fuinput_valid_q;
+    assign wb_fuoutput_i           = execute2wb_fuoutput_q;
+    assign wb_fuoutput_i_valid     = execute2wb_fuoutput_valid_q;
 
     // Backward Ready propagation (ungated for now ?)
     // Use !next_pipe_stage || next_stage_ready
@@ -90,7 +109,11 @@ module core #() (
     assign fetch_o_ready = !if2dec_valid_q || decode_in_i_ready;
     assign decode_di_o_ready = !dec2ren_di_valid_q || rename_di_i_ready;
     assign rename_di_o_ready = !ren2issue_di_valid_q || issue_di_i_ready;
-    assign issue_fuinput_o_ready = !issue2execute_fuinput_valid_d || execute_fuinput_i_ready;
+    
+    // Dirrect assigments for IEW
+    assign issue_fuinput_o_ready = execute_fuinput_i_ready;
+    assign wb_bypass_fuoutput_i = execute_fuoutput_o;
+    assign wb_bypass_fuoutput_i_valid = execute_fuoutput_o_valid;
 
     always_ff @(posedge clk) begin
         if(!rstn) begin
@@ -110,9 +133,13 @@ module core #() (
                 ren2issue_di_q <= ren2issue_di_d;
                 ren2issue_di_valid_q <= ren2issue_di_valid_d;
             end
-            if(execute_fuinput_i_ready) begin 
+            if(issue2execute_fuinput_valid_d) begin 
                 issue2execute_fuinput_q <= issue2execute_fuinput_d;
                 issue2execute_fuinput_valid_q <= issue2execute_fuinput_valid_d;
+            end
+            if(1) begin // Always ready
+                execute2wb_fuoutput_q <= execute2wb_fuoutput_d;
+                execute2wb_fuoutput_valid_q <= execute2wb_fuoutput_valid_d;
             end
         end
     end
@@ -159,15 +186,33 @@ module core #() (
     );
 
     /* Issue */   
-    issue #() issue (
+    iew #() issue (
         .clk(clk),
         .rstn(rstn),
+        /* Ren -> Issue */
         .di_i(issue_di_i),
         .di_i_valid(issue_di_i_valid),
         .di_i_ready(issue_di_i_ready),
+        // Issue -> Ex
         .fuinput_o(issue_fuinput_o),
         .fuinput_o_valid(issue_fuinput_o_valid),
-        .fuinput_o_ready(issue_fuinput_o_ready)
+        .fuinput_o_ready(issue_fuinput_o_ready),
+        // EX -> WB
+        .bypass_fuoutput_i(wb_bypass_fuoutput_i),
+        .bypass_fuoutput_i_valid(wb_bypass_fuoutput_i_valid),
+        .fuoutput_i(wb_fuoutput_i),
+        .fuoutput_i_valid(wb_fuoutput_i_valid)  
+    );
+
+    /* Functionnals units */
+    fus #() fus (
+        .clk(clk),
+        .rstn(rstn),
+        .fuinput_i(execute_fuinput_i),
+        .fuinput_i_valid(execute_fuinput_i_valid),
+        .fuinput_i_ready(execute_fuinput_i_ready),
+        .fuoutput_o(execute_fuoutput_o),
+        .fuoutput_o_valid(execute_fuoutput_o_valid)
     );
 
     initial begin
@@ -205,6 +250,15 @@ module core #() (
                 issue2execute_fuinput_q.rs1val,
                 issue2execute_fuinput_q.rs2val
             );
+        end
+        for (int i = 0; i < NR_WB_PORTS; i++) begin 
+            if(execute2wb_fuoutput_valid_q[i]) begin
+                handler_pkg::dpi_instr_writeback(
+                    32'(execute2wb_fuoutput_q[i].id),
+                    execute2wb_fuoutput_q[i].pc,
+                    execute2wb_fuoutput_q[i].rdval
+                );
+            end
         end
         handler_pkg::dpi_tick();
     end
