@@ -204,7 +204,6 @@ extern "C" void dpi_instr_issue(
     if(inst.issued){
         return;
     }
-    std::cout << "rs1 " << rs1val << " rs2 " << rs2val << std::endl;
     inst.issued = true;
     inst.rs1val = rs1val;
     inst.rs2val = rs2val;

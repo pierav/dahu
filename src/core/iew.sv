@@ -100,41 +100,59 @@ module iew #() (
     logic [XLEN-1:0] rs1val, rs2val;
     logic rs1val_valid, rs2val_valid;
 
+    logic [NREAD-1:0] is_renammed = {di_i.prs2_renammed,
+                                     di_i.prs1_renammed};
+    /* Read regs with bypass */
+    logic [NREAD-1:0][XLEN-1:0] prf_rdata_forward;
+    logic [NREAD-1:0]           prf_rdata_forward_valid;
+    always_comb begin : read_regs_with_bypass
+        for (int i = 0; i < NREAD; i++) begin
+            if(is_renammed[i]) begin
+                /* Default : read prf */
+                prf_rdata_forward[i]       =  prf_rdata[i];
+                prf_rdata_forward_valid[i] = sb_rdata[i];
+                /* Read bypass is sb fail */
+                for (int j = 0; j < NR_WB_PORTS; j++) begin
+                    if (bypass_fuoutput_i_valid[j] &&
+                        bypass_fuoutput_i[j].prd == prf_raddr[i]) begin
+                        /* Hit bypass */
+                        prf_rdata_forward[i] = bypass_fuoutput_i[i].rdval;
+                        prf_rdata_forward_valid[i] = 1'b1;
+                    end
+                end
+            end else begin 
+                /* Read ARF */
+                prf_rdata_forward[i]       = arf_rdata[i];
+                prf_rdata_forward_valid[i] = 1'b1; // Always valid
+            end
+        end
+    end
+
     always_comb begin : read_operands
         // rs1: default is valid
         rs1val = 0;
         rs1val_valid = 1'b1;
-        if(di_i.si.fu == FU_ALU && di_i.si.op == AUIPC) begin 
+        if (di_i.si.fu == FU_ALU && di_i.si.op == AUIPC) begin 
             rs1val = di_i.si.pc;
             rs1val_valid = 1'b1;
         end else if (di_i.si.use_uimm) begin
             rs1val = XLEN'(di_i.si.rs1);
             rs1val_valid = 1'b1;
         end else if(di_i.si.rs1_valid) begin // RR
-            if (di_i.prs1_renammed) begin // PRF if bypasss
-                rs1val = prf_rdata[0];
-                rs1val_valid = sb_rdata[0];
-            end else begin // ARF otherwise
-                rs1val = arf_rdata[0];
-                rs1val_valid = 1'b1; // Always valid
-            end
+            rs1val = prf_rdata_forward[0];
+            rs1val_valid = prf_rdata_forward_valid[0];
         end
         // rs2: default is valid
         rs2val = 0;
         rs2val_valid = 1'b1;
         // TODO : check synthesis
         // we can move AUIPC mux imm or rs2 in exe
-        if(di_i.si.fu == FU_ALU && di_i.si.op == AUIPC) begin
+        if (di_i.si.fu == FU_ALU && di_i.si.op == AUIPC) begin
             rs2val = di_i.si.imm;
             rs2val_valid = 1'b1;
-        end else  if(di_i.si.rs2_valid) begin // RR
-            if (di_i.prs2_renammed) begin // PRF if bypasss
-                rs2val = prf_rdata[1];
-                rs2val_valid = sb_rdata[1];
-            end else begin // ARF otherwise
-                rs2val = arf_rdata[1];
-                rs2val_valid = 1'b1; // Always valid
-            end
+        end else  if (di_i.si.rs2_valid) begin // RR
+            rs1val = prf_rdata_forward[1];
+            rs1val_valid = prf_rdata_forward_valid[1];
         end
     end
 
@@ -165,30 +183,64 @@ module iew #() (
     assign fuinput_o_valid      = di_i_valid && nostall;
     assign di_i_ready           = nostall;
 
-    always_ff @(posedge clk) begin 
-        if(di_i_valid && !nostall) begin
-            if(!ro_valid) begin
-                $display("IRO invalid for inst id %d", di_i.id);
-            end else if (!fu_valid) begin
-                $display("No FU valid for inst id %d", di_i.id);
-            end else if (!serialisation_valid) begin
-                $display("Issue in serialisation mode");
+    string cause;
+    always_comb begin
+        cause = "";
+        if(di_i_valid) begin
+            if(!nostall) begin
+                if(!ro_valid) begin
+                    cause = "FAIL IRO";
+                end else if (!fu_valid) begin
+                    cause = "FAIL FU ";
+                end else if (!serialisation_valid) begin
+                    cause = "FAIL SER";
+                end
+            end else begin
+                cause = "SUCCESS ";
             end
         end
-        if(di_i_valid && fuinput_o_valid) begin
-            $display("Issue: inst pc %x (sn=%d) rs1val=%d rs2val=%d fu:%d op:%d",
+    end
+    always_ff @(posedge clk) begin
+        if(di_i_valid) begin
+            $display("Issue: (port0) %s: pc %x (sn=%d) rs1:%d=%d(%d) rs2:%d=%d(%d) fu:%d(%d) op:%d",
+                cause,
                 fuinput_o.pc, fuinput_o.id,
-                fuinput_o.rs1val, fuinput_o.rs2val,
-                fuinput_o.fu, fuinput_o.op);
+                di_i.si.rs1, fuinput_o.rs1val, rs1val_valid,
+                di_i.si.rs2, fuinput_o.rs2val, rs2val_valid,
+                fuinput_o.fu, fu_valid,
+                fuinput_o.op
+            );
+        end else begin
+            $display("Issue: (port0) no ready inputs");
         end
     end
+
+
     /* Backward path : update from execute */
-    assign prf_we = 1'b0; // TODO
-    assign prf_waddr = 0;
-    assign prf_wdata = 0;
-    assign sb_we = 1'b0; // TODO
-    assign sb_waddr = 0;
-    assign sb_wdata = 0;
+    always_comb begin
+        for(int i = 0; i < NR_WB_PORTS; i++) begin
+            prf_we[i]       = fuoutput_i_valid[i];
+            prf_waddr[i]    = fuoutput_i[i].prd;
+            prf_wdata[i]    = fuoutput_i[i].rdval;
+            sb_we[i]        = fuoutput_i_valid[i];
+            sb_waddr[i]     = fuoutput_i[i].prd;
+            sb_wdata[i]     = 1'b1; // Data is valid
+        end
+    end
+    always_ff @(posedge clk) begin
+        for(int i = 0; i < NR_WB_PORTS; i++) begin
+            if(fuoutput_i_valid[i]) begin
+                $display("Wr-Ba: (port%1d) pc %x (sn=%d) prd:%d <- %x",
+                    i,
+                    fuoutput_i[i].pc, fuoutput_i[i].id,
+                    fuoutput_i[i].prd,
+                    fuoutput_i[i].rdval
+                );
+            end else begin
+                // $display("Wr-Ba: (port%d) no wb", i);
+            end
+        end
+    end
 
     /* Backward path : update from commit */
     assign arf_we = 1'b0;

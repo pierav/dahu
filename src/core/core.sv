@@ -133,7 +133,7 @@ module core #() (
                 ren2issue_di_q <= ren2issue_di_d;
                 ren2issue_di_valid_q <= ren2issue_di_valid_d;
             end
-            if(issue2execute_fuinput_valid_d) begin 
+            if(1) begin 
                 issue2execute_fuinput_q <= issue2execute_fuinput_d;
                 issue2execute_fuinput_valid_q <= issue2execute_fuinput_valid_d;
             end
