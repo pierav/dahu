@@ -15,8 +15,8 @@ module fu_alu #() (
     assign opb64 = fuinput_i.rs2val;
     assign opa32 = opa64[32-1:0];
     assign opb32 = opb64[32-1:0];
-    assign shift_amt = fuinput_i.rs2val[5:0];
-
+    assign shift_amt = fuinput_i.imm[5:0];
+    
     /*** Generic adder ***/
     logic negate;
     logic [XLEN-1+1+1:0] adder_opa, adder_opb, adder_res66;

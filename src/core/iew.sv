@@ -104,15 +104,14 @@ module iew #() (
         // rs1: default is valid
         rs1val = 0;
         rs1val_valid = 1'b1;
-        if(di_i.si.rs1_valid) begin // is reg used ?
-            if(di_i.si.fu == FU_ALU && di_i.si.op == AUIPC) begin 
-                rs1val = di_i.si.pc;
-                rs1val_valid = 1'b1;
-            end else if (di_i.si.use_uimm) begin
-                rs1val = XLEN'(di_i.si.rs1);
-                rs1val_valid = 1'b1;
-            end
-            else if (di_i.prs1_renammed) begin // PRF if bypasss
+        if(di_i.si.fu == FU_ALU && di_i.si.op == AUIPC) begin 
+            rs1val = di_i.si.pc;
+            rs1val_valid = 1'b1;
+        end else if (di_i.si.use_uimm) begin
+            rs1val = XLEN'(di_i.si.rs1);
+            rs1val_valid = 1'b1;
+        end else if(di_i.si.rs1_valid) begin // RR
+            if (di_i.prs1_renammed) begin // PRF if bypasss
                 rs1val = prf_rdata[0];
                 rs1val_valid = sb_rdata[0];
             end else begin // ARF otherwise
@@ -122,9 +121,13 @@ module iew #() (
         end
         // rs2: default is valid
         rs2val = 0;
-        rs2val_valid = 1'b1; 
-        if(di_i.si.rs2_valid) begin // is reg used ? 
-            // Let shamt as pure IMM
+        rs2val_valid = 1'b1;
+        // TODO : check synthesis
+        // we can move AUIPC mux imm or rs2 in exe
+        if(di_i.si.fu == FU_ALU && di_i.si.op == AUIPC) begin
+            rs2val = di_i.si.imm;
+            rs2val_valid = 1'b1;
+        end else  if(di_i.si.rs2_valid) begin // RR
             if (di_i.prs2_renammed) begin // PRF if bypasss
                 rs2val = prf_rdata[1];
                 rs2val_valid = sb_rdata[1];
@@ -173,7 +176,10 @@ module iew #() (
             end
         end
         if(di_i_valid && fuinput_o_valid) begin
-            $display("Issue: inst id %d", di_i.id);
+            $display("Issue: inst pc %x (sn=%d) rs1val=%d rs2val=%d fu:%d op:%d",
+                fuinput_o.pc, fuinput_o.id,
+                fuinput_o.rs1val, fuinput_o.rs2val,
+                fuinput_o.fu, fuinput_o.op);
         end
     end
     /* Backward path : update from execute */

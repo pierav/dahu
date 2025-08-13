@@ -88,7 +88,7 @@ package C;
     } fu_set_t;
 
     // All the functional units
-    typedef enum {
+    typedef enum [4-1:0]{
         FU_NONE, FU_LSU, FU_AMO, FU_ALU,
         FU_CTRL, FU_MUL,
         FU_DIV, FU_CSR, FU_FPU
