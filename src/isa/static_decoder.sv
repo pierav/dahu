@@ -157,6 +157,8 @@ module static_decoder #() (
   assign si_o.rd_valid  = rdv;
   assign si_o.imm       = imm;
   assign si_o.use_uimm  = use_uimm; // need use_pc ?
+  assign si_o.size      = fuop.size;
+
   assign si_o.valid     = valid;
 
 

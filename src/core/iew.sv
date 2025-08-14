@@ -120,7 +120,7 @@ module iew #() (
                         prf_rdata_forward_valid[i] = 1'b1;
                     end
                 end
-            end else begin 
+            end else begin
                 /* Read ARF */
                 prf_rdata_forward[i]       = arf_rdata[i];
                 prf_rdata_forward_valid[i] = 1'b1; // Always valid
@@ -172,6 +172,7 @@ module iew #() (
     assign fuinput_o.imm        = di_i.si.imm;
     assign fuinput_o.fu         = di_i.si.fu;
     assign fuinput_o.op         = di_i.si.op;
+    assign fuinput_o.size       = di_i.si.size;
 
     logic nostall;
     assign nostall = !di_i_valid ||

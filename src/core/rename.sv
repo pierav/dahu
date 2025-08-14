@@ -108,5 +108,32 @@ module rename #() (
     /* Ready valid */
     assign di_i_ready = di_o_ready && !stall;
     assign di_o_valid = di_i_valid && !stall; // TODO clked
+
+
+    string cause;
+    always_comb begin
+        cause = "";
+        if(di_i_valid) begin
+            if(stall) begin
+                cause = "OUT OR PR";
+            end else begin
+                cause = "SUCCESS  ";
+            end
+        end
+    end
+    always_ff @(posedge clk) begin
+        if(di_i_valid) begin
+            $display("Renam: (port0) %s: pc %x (sn=%d) rd:%d:%d prs1:%d:%d(%d) prs2:%d:%d(%d)",
+                cause,
+                di_o.si.pc, di_o.id,
+                di_o.si.rd,  di_o.prd,
+                di_o.si.rs1, di_o.prs1, di_o.prs1_renammed,
+                di_o.si.rs2, di_o.prs2, di_o.prs2_renammed
+            );
+        end else begin
+            $display("Renam: (port0) no ready inputs");
+        end
+    end
+
 endmodule
 

@@ -45,12 +45,22 @@ module fus #() (
     assign fu_inputs_readys[FU_ALU] = '1; // Always ready
     assign fu_outputs_valids[FU_ALU] = fu_inputs_valids[FU_ALU];
 
+    fu_lsu #() fu_lsu (
+        .clk(clk),
+        .rstn(rstn),
+        .fuinput_i(fu_inputs[FU_LSU]),
+        .fuinput_i_valid(fu_inputs_valids[FU_LSU]),
+        .fuinput_i_ready(fu_inputs_readys[FU_LSU]),
+        .fuoutput_o(fu_outputs[FU_LSU]),
+        .fuoutput_o_valid(fu_outputs_valids[FU_LSU])
+    );
+
 
     /* TODO IMPLEMENT */
     /* FU STUBS */
     always_comb begin
         for (int fu_idx = 0; fu_idx < NB_FU; fu_idx++) begin
-            if(fu_t'(fu_idx) != FU_ALU) begin
+            if(!(fu_t'(fu_idx) inside {FU_ALU, FU_LSU})) begin
                 fu_inputs_readys[fu_idx] = '0; // Not ready
                 fu_outputs_valids[fu_idx] = '0; // No results
                 fu_outputs[fu_idx] = '0;

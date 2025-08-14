@@ -10,7 +10,7 @@ module fu_alu #() (
     logic[32-1:0] opa32, opb32;
     logic[5:0] shift_amt;
     logic isword;
-    assign isword = fuinput_i.op inside {ADDW, SUBW, SRLW, SLLW, SRAW};
+    assign isword = fuinput_i.size == SIZE_W;
     assign opa64 = fuinput_i.rs1val;
     assign opb64 = fuinput_i.rs2val;
     assign opa32 = opa64[32-1:0];
@@ -27,7 +27,7 @@ module fu_alu #() (
     logic adder_isneg;
     logic adder_islt;
     // First layer: conditioning (0 for cmp, 1 for substraction)
-    assign needneg              = fuinput_i.op inside {SUB, SUBW, SLT, SLTU};
+    assign needneg              = fuinput_i.op inside {SUB, SLT, SLTU};
     assign adder_opa            = {1'b0, opa64, 1'b1};
     assign adder_opb            = {1'b0, opb64, 1'b0} ^ {XLEN+1+1{needneg}};
     // Mid layers: perform addition
@@ -49,8 +49,8 @@ module fu_alu #() (
     logic [32-1+1:0]    shift_opa33, shift_res33;
     logic shift_l, shift_a;
     // Retrieve inputs
-    assign shift_l              = fuinput_i.op inside {SLL, SLLW};
-    assign shift_a              = fuinput_i.op inside {SRA, SRAW};
+    assign shift_l              = fuinput_i.op inside { SLL };
+    assign shift_a              = fuinput_i.op inside { SRA };
     // First layer : fix inputs for (left or arthiemtic shifts)
     assign opa64_rev            = {<<{opa64}}; // Reverse bits
     assign opa32_rev            = {<<{opa32}};
@@ -79,9 +79,9 @@ module fu_alu #() (
     always_comb begin
         result = '0;
         unique case (fuinput_i.op.alu) // use alu set to avoid incomplteness
-            ADD, SUB, ADDW, SUBW, LUI, AUIPC: 
+            ADD, SUB, LUI, AUIPC: 
                 result = adder_final_result;
-            SLL, SRL, SRA, SLLW, SRLW, SRAW: 
+            SLL, SRL, SRA: 
                 result = shifter_final_result;
             AND:
                 result = opa64 & opb64;
