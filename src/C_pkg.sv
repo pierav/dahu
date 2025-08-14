@@ -8,19 +8,25 @@ package C;
     
     parameter int XLEN = 64;
 
+    parameter int NR_ISSUE_PORTS = 1;
     parameter int NR_WB_PORTS = 1;
     parameter int NR_COMMIT_PORTS = 1;
 
-    parameter ID_BITS = 20;
+    parameter int NR_ISSUE_PRF_READ_PORTS = NR_ISSUE_PORTS * 2; // TODO fFMA
+
+    parameter ID_BITS = 10;
     parameter NR_SQ_ENTRIES = 16;
+    parameter int NR_ROB_ENTRIES = 32;
+
 
     /* Primitives types */
-    typedef logic [ID_BITS-1:0]              id_t;
-    typedef logic [XLEN-1:0]                 xlen_t;
-    typedef logic [AREG_ID_BITS-1:0]         areg_id_t;
-    typedef logic [PREG_ID_BITS-1:0]         preg_id_t;
-    typedef logic [$clog2(NR_SQ_ENTRIES)-1:0] sq_id_t;
-
+    typedef logic [ID_BITS-1:0]                id_t;
+    typedef logic [XLEN-1:0]                   xlen_t;
+    typedef xlen_t                             pc_t;
+    typedef logic [AREG_ID_BITS-1:0]           areg_id_t;
+    typedef logic [PREG_ID_BITS-1:0]           preg_id_t;
+    typedef logic [$clog2(NR_SQ_ENTRIES)-1:0]  sq_id_t;
+    typedef logic [$clog2(NR_ROB_ENTRIES)-1:0] rob_id_t;
 
     typedef enum { SIZE_D, SIZE_W, SIZE_H, SIZE_B } inst_size_t;
     // We use an intermediate representation so as not to
@@ -305,5 +311,13 @@ package C;
         logic[XLEN-1:0]    rdval;    // Final result
     } fu_output_t;
 
+    typedef struct packed {
+        id_t id; // Debug only ?
+        pc_t pc; // Debug only ?
+        preg_id_t prd; // To read PRF
+        areg_id_t ard; // To write ARF
+        logic needprf2arf;
+        logic completed; // WB performed
+    } rob_entry_t;
 
 endpackage

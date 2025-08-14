@@ -9,7 +9,9 @@ module rename #() (
     
     output di_t di_o,        // The renammed instruction 
     output logic di_o_valid, // The instruction is renammed
-    input logic di_o_ready   // The next stage is ready
+    input logic di_o_ready,   // The next stage is ready
+
+    input rob_entry_t commit_entry_i
 
 );
 
@@ -42,7 +44,8 @@ module rename #() (
 
     /* Allocator (for now use a counter) */
     logic allocate;             // input
-    logic free;                 // input
+    logic       free_valid;     // input
+    preg_id_t   free_prd;       
     logic can_allocate;         // output
     preg_id_t allocated_preg;   // output
     preg_id_t counter_q, counter_d;
@@ -60,8 +63,9 @@ module rename #() (
         end
         // Release
         // TODO 0 cycle release->alloc
-        if(free) begin
+        if(free_valid) begin
             // TODO check free ID
+            $asserton(free_prd == (counter_q + inflights_q));
             inflights_d = inflights_d - 1;
         end
     end
@@ -78,7 +82,9 @@ module rename #() (
 
     /* Rename */
     /* Commit -> Free */
-    assign free = 1'b0;
+    assign free_valid = commit_entry_i.completed &&
+                        commit_entry_i.needprf2arf;
+    assign free_prd   = commit_entry_i.prd;
 
     /* Rename -> Allocator */
     assign allocate = di_i_valid && can_allocate && di_i.si.rd_valid;

@@ -165,7 +165,7 @@ extern "C" void dpi_instr_decode(int id, uint64_t pc, uint32_t instr) {
     }
     DynamicInst di = DynamicInst(id, pc, instr);
     inflight[id] = di;
-    std::cout << "DEC:" << di << std::endl;
+    std::cout << "Decod:" << di << std::endl;
     if(!di.si->isInst()){
         std::cout << "Not a valid inst\n";
         exit(1);
@@ -191,7 +191,7 @@ extern "C" void dpi_instr_renamed(
     inst.prs1_renammed = prs1_renammed;
     inst.prs2 = prs2;
     inst.prs2_renammed = prs2_renammed;
-    std::cout << "REN:" << inst << std::endl;
+    std::cout << "Renam:" << inst << std::endl;
 }
 
 // Issue event TODO FMA
@@ -208,7 +208,7 @@ extern "C" void dpi_instr_issue(
     inst.rs1val = rs1val;
     inst.rs2val = rs2val;
     inst.rs3val = 0;
-    std::cout << "ISS:" << inst << std::endl;
+    std::cout << "Issue:" << inst << std::endl;
 }
 
 // Write-Back event
@@ -223,12 +223,14 @@ extern "C" void dpi_instr_writeback(
     }
     inst.writeback = true;
     inst.rdval = rdval;
-    std::cout << "W-B:" << inst << std::endl;
+    std::cout << "Wr-Ba:" << inst << std::endl;
 }
 
 // Commit event
 extern "C" void dpi_instr_commit(int id, uint64_t pc) {
     DynamicInst &inst = getInst(id, pc);
+    std::cout << "Commi:" << inst << std::endl;
+
 }
 
 // Handle time locally

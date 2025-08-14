@@ -19,7 +19,7 @@ module dynamic_decoder #() (
     output di_t di_o,
     input logic di_o_ready
 );
-  logic[20-1:0] cpt;
+  id_t cpt;
   logic isfault;
 
   assign di_o.si = si_i;

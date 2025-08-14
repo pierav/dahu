@@ -57,6 +57,9 @@ module core #() (
     fu_output_t     wb_fuoutput_i[NR_WB_PORTS];
     wb_bitvector_t  wb_fuoutput_i_valid;
 
+    /* Commit */
+    rob_entry_t     commit_entry;
+
     // Pipeline stages handle
     /* Fetch -> decode */
     fetch_data_t if2dec_q, if2dec_d;
@@ -176,13 +179,14 @@ module core #() (
     rename #() rename (
         .clk(clk),
         .rstn(rstn),
-        .di_i(rename_di_i),        // Instruction to process
-        .di_i_valid(rename_di_i_valid),  // Instruction to process is here
+        .di_i(rename_di_i),             // Instruction to process
+        .di_i_valid(rename_di_i_valid), // Instruction to process is here
         .di_i_ready(rename_di_i_ready), // Ready to rename new one
-        .di_o(rename_di_o),        // The renammed instruction 
+        .di_o(rename_di_o),             // The renammed instruction 
         .di_o_valid(rename_di_o_valid), // The instruction is renammed
-        .di_o_ready(rename_di_o_ready)   // The next stage is ready
-
+        .di_o_ready(rename_di_o_ready), // The next stage is ready
+        // From commit
+        .commit_entry_i(commit_entry)
     );
 
     /* Issue */   
@@ -201,7 +205,9 @@ module core #() (
         .bypass_fuoutput_i(wb_bypass_fuoutput_i),
         .bypass_fuoutput_i_valid(wb_bypass_fuoutput_i_valid),
         .fuoutput_i(wb_fuoutput_i),
-        .fuoutput_i_valid(wb_fuoutput_i_valid)  
+        .fuoutput_i_valid(wb_fuoutput_i_valid),
+        // Completed instruction
+        .commit_entry_o(commit_entry)
     );
 
     /* Functionnals units */
@@ -224,7 +230,7 @@ module core #() (
         if(dec2ren_di_valid_q) begin
             // First check oracle
             handler_pkg::dpi_instr_decode(
-                {12'b0, dec2ren_di_q.id},
+                32'(dec2ren_di_q.id),
                 dec2ren_di_q.si.pc,
                 dec2ren_di_q.si.tinst);
             // Then check HW decoder
@@ -259,6 +265,12 @@ module core #() (
                     execute2wb_fuoutput_q[i].rdval
                 );
             end
+        end
+        if(commit_entry.completed) begin
+            handler_pkg::dpi_instr_commit(
+                32'(commit_entry.id),
+                commit_entry.pc
+            );
         end
         handler_pkg::dpi_tick();
     end

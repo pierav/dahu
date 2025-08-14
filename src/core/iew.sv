@@ -15,22 +15,25 @@ module iew #() (
     input fu_output_t    bypass_fuoutput_i[NR_WB_PORTS],
     input wb_bitvector_t bypass_fuoutput_i_valid,
     input fu_output_t    fuoutput_i[NR_WB_PORTS],
-    input wb_bitvector_t fuoutput_i_valid
+    input wb_bitvector_t fuoutput_i_valid,
+    // To pipeline
+    output rob_entry_t   commit_entry_o
 );
     // TODO 0: Handle many write backs
     // TODO 1: Bancked PRF ?
+    parameter PRF_READ_PORTS = NR_ISSUE_PRF_READ_PORTS + NR_COMMIT_PORTS;
     parameter int NREAD = 2;
     // Write ports
     logic [NR_WB_PORTS-1:0]                   prf_we;
     logic [NR_WB_PORTS-1:0][PREG_ID_BITS-1:0] prf_waddr;
     logic [NR_WB_PORTS-1:0][XLEN-1:0]         prf_wdata;
     // Read ports
-    logic [NREAD-1:0][PREG_ID_BITS-1:0]  prf_raddr;
-    logic [NREAD-1:0][XLEN-1:0]          prf_rdata;
+    logic [PRF_READ_PORTS-1:0][PREG_ID_BITS-1:0]  prf_raddr;
+    logic [PRF_READ_PORTS-1:0][XLEN-1:0]          prf_rdata;
     regfile #(
         .WIDTH(XLEN),
         .NREGS(PRFSIZE),
-        .NREAD(NREAD),
+        .NREAD(PRF_READ_PORTS),
         .NWRITE(NR_WB_PORTS)
     ) prf (
         .clk(clk),
@@ -243,11 +246,112 @@ module iew #() (
         end
     end
 
-    /* Backward path : update from commit */
-    assign arf_we = 1'b0;
-    assign arf_waddr = 0;
-    assign arf_wdata = 0;
-                                  
+
+    /* Broadcast valids from ex to rob */
+    rob_entry_t [NR_ROB_ENTRIES-1:0] rob;
+    logic       [NR_ROB_ENTRIES-1:0] rob_allocated;
+
+    // ROB Inputs push
+    logic       rob_push_i_valid; // Input
+    logic       rob_push_i_ready; // Output
+    rob_entry_t rob_push_data_i;
+    assign      rob_push_i_ready = !rob_allocated[rob_issue_id_q];
+    // ROB Inputs WB
+    wb_bitvector_t  rob_wb_id_i_valid;
+    rob_id_t        rob_wb_id_i [NR_WB_PORTS];
+    // ROB Output Commit
+    rob_entry_t rob_pop_data_o;
+    logic       rob_pop_i;
+    // ROB pointers
+    rob_id_t    rob_issue_id_q, rob_issue_id_d;
+    assign      rob_issue_id_d = rob_issue_id_q + 1;
+    rob_id_t    rob_commit_id_q, rob_commit_id_d;    
+    assign      rob_commit_id_d = rob_commit_id_q + 1;
+    always_ff @(posedge clk) begin
+        if(!rstn) begin
+            rob_issue_id_q <= '0;
+            rob_commit_id_q <= '0;
+            for (int i = 0; i < NR_ROB_ENTRIES; i++) begin
+                rob[i].completed <= '0;
+            end
+            rob_allocated <= '0;
+        end else begin
+            // Issue ports
+            if(rob_push_i_valid) begin
+                $asserton(!rob_allocated[rob_issue_id_q]);
+                rob[rob_issue_id_q] <= rob_push_data_i;
+                rob_allocated[rob_issue_id_q] <= 1'b1;
+                rob_issue_id_q <= rob_issue_id_d;
+            end
+            // Write Back ports
+            for (int i = 0; i < NR_WB_PORTS; i++) begin
+                if(rob_wb_id_i_valid[i]) begin
+                    rob[rob_wb_id_i[i]].completed <= '1;
+                end
+            end
+            if (rob_pop_i) begin
+                $asserton(rob_allocated[rob_commit_id_d]);
+                rob_allocated[rob_commit_id_d] <= 1'b1;
+                rob_commit_id_q <= rob_commit_id_d;
+            end
+        end
+    end
+    // Commit ports read
+    assign rob_pop_data_o = rob[rob_commit_id_q];
+
+    /* ROB: Insert in rob at issue for now */
+    assign rob_push_i_valid = fuinput_o_valid;
+    assign rob_push_data_i.id = di_i.id; 
+    assign rob_push_data_i.pc = di_i.si.pc;
+    assign rob_push_data_i.prd = di_i.prd;
+    assign rob_push_data_i.ard = di_i.si.rd;
+    assign rob_push_data_i.needprf2arf = di_i.si.rd_valid;
+    assign rob_push_data_i.completed = '0;
+
+    /* ROB: Mark WB */
+    always_comb begin
+        for(int i = 0; i < NR_WB_PORTS; i++) begin
+            rob_wb_id_i_valid[i] = fuoutput_i_valid[i];
+            rob_wb_id_i[i]       = rob_id_t'(fuoutput_i[i].id);
+        end
+    end
+
+    // TODO retrieve PRF value at WB or at COMMIT1 -> COMMIT2 ?
+    /* ROB: Commit */
+    rob_entry_t commit_entry_q, commit_entry_d;
+    xlen_t      commit_rdval_q, commit_rdval_d;
+
+    assign commit_entry_d   = rob_pop_data_o;
+    assign rob_pop_i        = rob_pop_data_o.completed;
+    assign prf_raddr[2]     = rob_pop_data_o.prd; // PRF -> ARF port
+    assign commit_rdval_d   = prf_rdata[2];
+    always_ff @(posedge clk) begin
+        if(!rstn) begin 
+            commit_entry_q <= '0;
+            commit_rdval_q <= '0;
+        end else begin 
+            commit_entry_q <= commit_entry_d;
+            commit_rdval_q <= commit_rdval_d;
+        end
+    end
+
+    /* Commit stage */
+    assign commit_entry_o = commit_entry_q;
+
+    logic commit_isrd_valid = commit_entry_q.completed &&
+                              commit_entry_q.needprf2arf;
+    /* Free register : in rename stage ? */
+    // logic     commit_free_prd_valid;
+    // preg_id_t commit_free_prd;
+    // assign commit_free_prd_valid = commit_isrd_valid;
+    // assign commit_free_prd       = commit_entry_q.prd;
+    /* Update the architecural state */
+    assign arf_we[0]    = commit_isrd_valid;
+    assign arf_waddr[0] = commit_entry_q.ard;
+    assign arf_wdata[0] = commit_rdval_q;
+
+
+
 
 
 endmodule
