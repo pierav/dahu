@@ -4,7 +4,7 @@ riscv-isa-sim
 riscv-opcodes
 
 benchs/build
-
+commit.log
 log
 *.vcd
 

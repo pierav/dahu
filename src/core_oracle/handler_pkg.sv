@@ -45,5 +45,11 @@ package handler_pkg;
         input longint unsigned pc
     );
 
+    // Dump callback
+    import "DPI-C" context function string dpi_inst_get_dump(
+        input int id,
+        input longint unsigned pc
+    );
+
 
 endpackage

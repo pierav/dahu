@@ -10,6 +10,8 @@
 #include <iomanip>
 #include <cassert>
 #include "svdpi.h"
+#include <fstream>
+
 #include "core_oracle/isa.hh"
 
 #define MAX_INST_IDS 65536
@@ -77,9 +79,12 @@ struct DynamicInst {
     }
 
     std::ostream& dump(std::ostream& os) const {
-        os << std::setw(16) << std::setfill('0') << std::right << cycle << ": "
-           << std::setw(16) << std::setfill(' ') << std::hex << pc << ": "
-           << "(sn:" << id << ") "
+        os << std::setw(16) << std::setfill('0') << std::right << std::dec 
+           << cycle << ": "
+           << std::setw(16) << std::setfill(' ') << std::hex 
+           << pc << ": "
+           << "(sn:" << std::setfill('0') << std::setw(8) << std::dec 
+           << id << ") "
            << "(" << std::setw(8) << std::setfill('0') << std::hex << si->instr << ") "
            << std::dec << std::setfill(' ') << si->getDisas();
         if (renammed) {
@@ -152,10 +157,14 @@ DynamicInst &getInst(int id, uint64_t pc){
 //     int         prd;
 // };
 
+#define LOG_ALL 0
+
+static std::ofstream out;
 
 extern "C" void dpi_monitor_init() {
     std::cout << "*** Hello for dpi (src/core_oracle/handle.cc)" << std::endl;
     inflight[0].id = -1;
+    out.open("commit.log");
 }
 
 // Decode event
@@ -165,9 +174,11 @@ extern "C" void dpi_instr_decode(int id, uint64_t pc, uint32_t instr) {
     }
     DynamicInst di = DynamicInst(id, pc, instr);
     inflight[id] = di;
-    std::cout << "Decod:" << di << std::endl;
+    if(LOG_ALL){
+        out << "Decod:" << di << std::endl;
+    }
     if(!di.si->isInst()){
-        std::cout << "Not a valid inst\n";
+        out << "Not a valid inst\n";
         exit(1);
     }
 }
@@ -180,7 +191,7 @@ extern "C" void dpi_instr_renamed(
     bool prs2_renammed,
     int prd
 ){
-    // std::cout << id << " rd:" << prd << " " << prs1 << " " << prs2 << std::endl;
+    // out << id << " rd:" << prd << " " << prs1 << " " << prs2 << std::endl;
     DynamicInst &inst = getInst(id, pc);
     if(inst.renammed){
         return;
@@ -191,7 +202,9 @@ extern "C" void dpi_instr_renamed(
     inst.prs1_renammed = prs1_renammed;
     inst.prs2 = prs2;
     inst.prs2_renammed = prs2_renammed;
-    std::cout << "Renam:" << inst << std::endl;
+    if(LOG_ALL){
+        out << "Renam:" << inst << std::endl;
+    }
 }
 
 // Issue event TODO FMA
@@ -208,7 +221,9 @@ extern "C" void dpi_instr_issue(
     inst.rs1val = rs1val;
     inst.rs2val = rs2val;
     inst.rs3val = 0;
-    std::cout << "Issue:" << inst << std::endl;
+    if(LOG_ALL){
+        out << "Issue:" << inst << std::endl;
+    }
 }
 
 // Write-Back event
@@ -223,13 +238,15 @@ extern "C" void dpi_instr_writeback(
     }
     inst.writeback = true;
     inst.rdval = rdval;
-    std::cout << "Wr-Ba:" << inst << std::endl;
+    if(LOG_ALL){
+        out << "Wr-Ba:" << inst << std::endl;
+    }
 }
 
 // Commit event
 extern "C" void dpi_instr_commit(int id, uint64_t pc) {
     DynamicInst &inst = getInst(id, pc);
-    std::cout << "Commi:" << inst << std::endl;
+    out << "Commit:" << inst << std::endl;
 
 }
 
@@ -239,4 +256,14 @@ extern "C" void dpi_tick() {
     std::cout << "------------ cycle " 
               << cycle 
               << " -----------" << std::endl;
+}
+
+extern "C" const char* dpi_inst_get_dump(int id, uint64_t pc){
+    static std::string tmp; // Small hack to preserve data
+    DynamicInst &inst = getInst(id, pc);
+    std::ostringstream oss;
+    oss << inst;
+    tmp = oss.str();
+    const char* cstr = tmp.c_str();
+    return cstr;
 }

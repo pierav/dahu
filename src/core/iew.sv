@@ -484,6 +484,8 @@ module iew #() (
                 commit_entry_i.ard, commit_entry_i.prd,
                 commit_entry_i.needprf2arf, retire_rdval_q
             );
+            $display("TRACE:", handler_pkg::dpi_inst_get_dump(
+                32'(commit_entry_i.id),  commit_entry_i.pc));
         end else begin 
             $display("Retire: (port0) empty");
         end
