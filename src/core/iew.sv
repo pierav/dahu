@@ -18,7 +18,9 @@ module iew #() (
     input wb_bitvector_t fuoutput_i_valid,
     input completion_port_t completion_ports_i[NR_COMPL_PORTS],
     // To pipeline
-    output rob_entry_t   retire_entry_o
+    output rob_entry_t   retire_entry_o,
+    output logic         retire_entry_o_valid
+    
 );
     // TODO 0: Handle many write backs
     // TODO 1: Bancked PRF ?
@@ -305,6 +307,7 @@ module iew #() (
     rob_id_t                   rob_cmpl_id_i [NR_COMPL_PORTS];
     // ROB Output Commit
     rob_entry_t rob_pop_data_o;
+    logic       rob_pop_data_o_valid; // Instruction is here
     logic       rob_pop_i;
     // ROB pointers
     rob_id_t    rob_issue_id_q, rob_issue_id_d;
@@ -322,7 +325,8 @@ module iew #() (
         end else begin
             // Issue ports
             if(rob_push_i_valid) begin
-                $asserton(!rob_allocated[rob_issue_id_q]);
+                assert (!rob_allocated[rob_issue_id_q]) else 
+                    $error("Overallocate rob entry");
                 rob[rob_issue_id_q] <= rob_push_data_i;
                 rob_allocated[rob_issue_id_q] <= 1'b1;
                 rob_issue_id_q <= rob_issue_id_d;
@@ -334,7 +338,10 @@ module iew #() (
                 end
             end
             if (rob_pop_i) begin
-                $asserton(rob_allocated[rob_retire_id_q]);
+                assert (rob_allocated[rob_retire_id_q]) else
+                    $error("Pop Unallocated entry");
+                assert (rob[rob_retire_id_q].completed) else 
+                    $error("Pop Uncompleted entry");
                 rob_allocated[rob_retire_id_q] <= 1'b0;
                 rob_retire_id_q <= rob_retire_id_d;
             end
@@ -342,6 +349,8 @@ module iew #() (
     end
     // Commit ports read
     assign rob_pop_data_o = rob[rob_retire_id_q];
+    assign rob_pop_data_o_valid = rob_allocated[rob_retire_id_q] &&
+                                  rob_pop_data_o.completed;
 
     /* ROB: Insert in rob at issue for now */
     assign rob_push_i_valid = fuinput_o_valid;
@@ -409,26 +418,30 @@ module iew #() (
     
     // Retire stage
     rob_entry_t retire_entry_q, retire_entry_d;
+    logic       retire_entry_q_valid, retire_entry_d_valid;
     xlen_t      retire_rdval_q, retire_rdval_d;
-    assign retire_entry_d   = rob_pop_data_o; // Wires
-    
+
+    assign retire_entry_d       = rob_pop_data_o; // Wires
+    assign retire_entry_d_valid = rob_pop_data_o_valid;
     // Bypass needed here ?
-    assign rob_pop_i        = rob_pop_data_o.completed;
-    assign prf_raddr[2]     = rob_pop_data_o.prd; // PRF -> ARF port
-    assign retire_rdval_d   = prf_rdata[2];
+    assign rob_pop_i            = rob_pop_data_o_valid;
+    assign prf_raddr[2]         = rob_pop_data_o.prd; // PRF -> ARF port
+    assign retire_rdval_d       = prf_rdata[2];
     always_ff @(posedge clk) begin
         if(!rstn) begin 
             retire_entry_q <= '0;
             retire_rdval_q <= '0;
+            retire_entry_q_valid <= '0;
         end else begin 
             retire_entry_q <= retire_entry_d;
             retire_rdval_q <= retire_rdval_d;
+            retire_entry_q_valid <= retire_entry_d_valid;
         end
     end
 
     // Output retired inst
     assign retire_entry_o = retire_entry_q;
-
+    assign retire_entry_o_valid = retire_entry_q_valid;
 
     always_ff @(posedge clk) begin
         if(rob_allocated[rob_retire_id_q]) begin
@@ -445,9 +458,11 @@ module iew #() (
 
     /* Commit stage */
     rob_entry_t commit_entry_i;
-    xlen_t commit_retire_rdval_i;
+    logic       commit_entry_i_valid;
+    xlen_t      commit_retire_rdval_i;
 
-    assign commit_entry_i   = retire_entry_q;
+    assign commit_entry_i        = retire_entry_q;
+    assign commit_entry_i_valid  = retire_entry_q_valid;
     assign commit_retire_rdval_i = retire_rdval_q;
 
     logic retire_isrd_valid = commit_entry_i.completed &&
@@ -462,7 +477,7 @@ module iew #() (
     assign arf_waddr[0] = retire_entry_q.ard;
     assign arf_wdata[0] = retire_rdval_q;
     always_ff @(posedge clk) begin
-        if(commit_entry_i.completed) begin
+        if(commit_entry_i_valid) begin
             $display("Commit: (port0) %s: pc %x (sn=%d) rd:%d=%d (wb?%d) v:%d",
                 commit_entry_i.completed ? "SUCCESS " : "FAILURE",
                 commit_entry_i.pc, commit_entry_i.id,

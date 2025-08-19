@@ -60,6 +60,7 @@ module core #() (
 
     /* Commit */
     rob_entry_t     retire_entry;
+    logic           retire_entry_valid;
 
     // Pipeline stages handle
     /* Fetch -> decode */
@@ -187,7 +188,8 @@ module core #() (
         .di_o_valid(rename_di_o_valid), // The instruction is renammed
         .di_o_ready(rename_di_o_ready), // The next stage is ready
         // From commit
-        .retire_entry_i(retire_entry)
+        .retire_entry_i(retire_entry),
+        .retire_entry_i_valid(retire_entry_valid)
     );
 
     /* Issue */   
@@ -210,7 +212,8 @@ module core #() (
         // EX -> ROB
         .completion_ports_i(completion_ports),
         // To commit instruction
-        .retire_entry_o(retire_entry)
+        .retire_entry_o(retire_entry),
+        .retire_entry_o_valid(retire_entry_valid)
     );
 
     /* Functionnals units */
@@ -270,7 +273,7 @@ module core #() (
                 );
             end
         end
-        if(retire_entry.completed) begin
+        if(retire_entry_valid) begin
             handler_pkg::dpi_instr_commit(
                 32'(retire_entry.id),
                 retire_entry.pc

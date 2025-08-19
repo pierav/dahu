@@ -5,6 +5,7 @@ riscv-opcodes
 
 benchs/build
 
+log
 *.vcd
 
 

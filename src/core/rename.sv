@@ -11,7 +11,8 @@ module rename #() (
     output logic di_o_valid, // The instruction is renammed
     input logic di_o_ready,   // The next stage is ready
 
-    input rob_entry_t retire_entry_i
+    input rob_entry_t retire_entry_i,
+    input logic retire_entry_i_valid
 
 );
 
@@ -82,7 +83,7 @@ module rename #() (
 
     /* Rename */
     /* Commit -> Free */
-    assign free_valid = retire_entry_i.completed &&
+    assign free_valid = retire_entry_i_valid &&
                         retire_entry_i.needprf2arf;
     assign free_prd   = retire_entry_i.prd;
 
@@ -128,16 +129,18 @@ module rename #() (
         end
     end
     always_ff @(posedge clk) begin
-        if(di_i_valid) begin
-            $display("Renam: (port0) %s: pc %x (sn=%d) rd:%d:%d prs1:%d:%d(%d) prs2:%d:%d(%d)",
+        if(!di_i_ready) begin
+            $display("Rename: (port0) output is not ready");
+        end else if (!di_i_valid) begin
+            $display("Rename: (port0) no valids inputs");
+        end else begin 
+            $display("Rename: (port0) %s: pc %x (sn=%d) rd:%d:%d prs1:%d:%d(%d) prs2:%d:%d(%d)",
                 cause,
                 di_o.si.pc, di_o.id,
                 di_o.si.rd,  di_o.prd,
                 di_o.si.rs1, di_o.prs1, di_o.prs1_renammed,
                 di_o.si.rs2, di_o.prs2, di_o.prs2_renammed
             );
-        end else begin
-            $display("Renam: (port0) no ready inputs");
         end
     end
 
