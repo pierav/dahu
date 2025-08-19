@@ -10,13 +10,14 @@ package C;
     // Pipe width
     parameter int NR_ISSUE_PORTS = 1;
     parameter int NR_WB_PORTS = 2;
-    parameter int NR_COMPL_PORTS = NR_WB_PORTS + 1; // Completion ports
+    parameter int NR_COMPL_PORTS = NR_WB_PORTS + 2; // Completion ports
     parameter int NR_COMMIT_PORTS = 1;
     parameter int NR_ISSUE_PRF_READ_PORTS = NR_ISSUE_PORTS * 2; // TODO FMA
     // Number of inflight instructions related
     parameter int ID_BITS = 10; // TDB accordingly with max inflights
     parameter int NR_SQ_ENTRIES = 16;
     parameter int NR_ROB_ENTRIES = 32;
+    parameter int NR_BQ_ENTRIES = 16; // Branch Queue entries
 
     /* Primitives types */
     typedef logic [ID_BITS-1:0]                id_t;
@@ -26,6 +27,7 @@ package C;
     typedef logic [PREG_ID_BITS-1:0]           preg_id_t;
     typedef logic [$clog2(NR_SQ_ENTRIES)-1:0]  sq_id_t;
     typedef logic [$clog2(NR_ROB_ENTRIES)-1:0] rob_id_t;
+    typedef logic [$clog2(NR_BQ_ENTRIES)-1:0]  bq_id_t;
 
     typedef enum { SIZE_D, SIZE_W, SIZE_H, SIZE_B } inst_size_t;
     // We use an intermediate representation so as not to
@@ -62,7 +64,6 @@ package C;
     typedef enum logic [NB_BITS_FU_OP-1:0] {
         JAL,
         JALR,
-        BRANCH,
         BLT, BLTU, BGE, BGEU, BEQ, BNE
     } ctrl_set_t;
 
@@ -84,7 +85,7 @@ package C;
         none_set_t none;
         lsu_set_t lsu;
         alu_set_t alu; 
-        ctrl_set_t control;
+        ctrl_set_t ctrl;
         mul_set_t mul;
         div_set_t div;
         fpu_set_t fpu;
@@ -322,8 +323,18 @@ package C;
         preg_id_t prd; // To read PRF
         areg_id_t ard; // To write ARF
         logic needprf2arf;
+        logic needSQfree;
+        // logic needBQfree;
+        // logic needCSRfree;
         logic completed; // WB performed
     } rob_entry_t;
+
+    // Branch prediction
+    typedef struct packed {
+        xlen_t pcnext;
+        logic taken;
+    } bp_t;
+
 
 endpackage
 
@@ -348,4 +359,29 @@ interface csr_if #();
         input  wvalid
     );
 endinterface : csr_if
+
+
+
+interface dcache_ports_if #();
+    xlen_t     waddr;
+    inst_size_t wsize;
+    xlen_t     wdata;
+    logic      wvalid;
+    logic      wready;
+
+    modport master (
+        output waddr,
+        output wsize,
+        output wdata,
+        output wvalid,
+        input  wready
+    );
+    modport slave (
+        input  waddr,
+        input  wsize,
+        input  wdata,
+        input  wvalid,
+        output wready
+    );
+endinterface : dcache_store_port_if
 

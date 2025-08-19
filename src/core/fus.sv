@@ -12,9 +12,19 @@ module fus #() (
     output wb_bitvector_t fuoutput_o_valid,
     // Completion ports
     output completion_port_t completion_ports_o[NR_COMPL_PORTS],
-    // Core
-    input logic rob_head_is_csr_i,
-    csr_if.master csr_io
+    // Core   
+    input rob_entry_t   retire_entry_i,
+    input logic         retire_entry_i_valid,
+    csr_if.master csr_io,
+
+    // From/To BP
+    input bp_t bp_i,
+    input logic bp_i_valid,
+    output logic bp_i_ready,
+
+    // Caches
+    dcache_ports_if dcache_ports_io
+
 );
 
     fu_input_t      fu_inputs[NB_FU];
@@ -25,6 +35,7 @@ module fus #() (
     fu_bitvector_t  fu_outputs_valids;
 
     completion_port_t store_completion;
+    completion_port_t branch_completion;
 
     // assign the instruction to the corresponding FU
     // TODO chandle mulitple ALU and multiple ISSUE
@@ -60,7 +71,10 @@ module fus #() (
         .fuinput_i_ready(fu_inputs_readys[FU_LSU]),
         .fuoutput_o(fu_outputs[FU_LSU]),
         .fuoutput_o_valid(fu_outputs_valids[FU_LSU]),
-        .store_completion_o(store_completion)
+        .retire_entry_i(retire_entry_i),
+        .retire_entry_i_valid(retire_entry_i_valid),
+        .store_completion_o(store_completion),
+        .dcache_ports_io(dcache_ports_io)
     );
 
     /* MISC */
@@ -72,10 +86,29 @@ module fus #() (
         .fuinput_i_ready(fu_inputs_readys[FU_NONE]),
         .fuoutput_o(fu_outputs[FU_NONE]),
         .fuoutput_o_valid(fu_outputs_valids[FU_NONE]),
-        .rob_head_is_csr_i(rob_head_is_csr_i),
+        .retire_entry_i(retire_entry_i),
+        .retire_entry_i_valid(retire_entry_i_valid),
         .csr_io(csr_io)
     );
 
+    /* Branch */
+    fu_branch fu_branch (
+        .clk(clk),
+        .rstn(rstn),
+        .fuinput_i(fu_inputs[FU_CTRL]),
+        .fuinput_i_valid(fu_inputs_valids[FU_CTRL]),
+        .fuinput_i_ready(fu_inputs_readys[FU_CTRL]),
+        .branch_completion_o(branch_completion),
+        .bp_i(bp_i),
+        .bp_i_valid(bp_i_valid),
+        .bp_i_ready(bp_i_ready),
+        .retire_entry_i(retire_entry_i),
+        .retire_entry_i_valid(retire_entry_i_valid)
+    );
+    // Nothing to write back
+    assign fu_outputs_valids[FU_CTRL] = '0;
+    assign fu_outputs[FU_CTRL] = '0;
+    
     /* TODO IMPLEMENT */
     /* FU STUBS */
     always_comb begin
@@ -117,6 +150,7 @@ module fus #() (
         end
         // The others are for stores and branch
         completion_ports_o[0 + NR_WB_PORTS] = store_completion;
+        completion_ports_o[1 + NR_WB_PORTS] = branch_completion;
     end
 
 endmodule

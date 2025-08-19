@@ -7,7 +7,9 @@ module fu_csr #() (
     output logic      fuinput_i_ready,
     output fu_output_t fuoutput_o,
     output logic       fuoutput_o_valid,
-    input logic rob_head_is_csr_i,
+    // Core   
+    input rob_entry_t   retire_entry_i,
+    input logic         retire_entry_i_valid,
     csr_if.master csr_io
 ); 
 
@@ -32,34 +34,44 @@ module fu_csr #() (
     assign csr_rdata    = csr_io.rdata;
     
     // Write path (save csr in buffer): cannot be speculative
-    RV::csr_addr_t csr_addr_q, csr_addr_d;
-    logic csr_valid_q, csr_valid_d;
-    xlen_t csr_data_q, csr_data_d;
+    typedef struct packed {
+        id_t id;
+        RV::csr_addr_t addr;
+        xlen_t data;
+        logic valid;
+    } csr_write_entry_t;
+
+    csr_write_entry_t csrq[1]; // Fifo of inflights CSR Writes
+    csr_write_entry_t csrw;
 
     // Save Reg Write in buffer until commit
-    assign csr_addr_d  = csr_addr_i;
-    assign csr_valid_d = fuinput_i_valid && csr_need_write_i;
-    assign csr_data_d  = op_i == CSR_WRITE ? csr_wdata_i :
-                         op_i == CSR_SET   ? csr_wdata_i | csr_rdata :
-                         op_i == CSR_CLEAR ? (~csr_wdata_i) & csr_rdata :
-                         '0;
-
+    assign csrw.id    = fuinput_i.id;
+    assign csrw.addr  = csr_addr_i;
+    assign csrw.valid = fuinput_i_valid && csr_need_write_i;
+    assign csrw.data  = op_i == CSR_WRITE ? csr_wdata_i :
+                        op_i == CSR_SET   ? csr_wdata_i | csr_rdata :
+                        op_i == CSR_CLEAR ? (~csr_wdata_i) & csr_rdata :
+                        '0;
+    logic csrq_pop;
+    assign csrq_pop = retire_entry_i_valid && 
+                      csrq[0].id == retire_entry_i.id;
     always_ff @(posedge clk) begin
         if (!rstn) begin
-            csr_addr_q <= '0;
-            csr_valid_q <= '0;
-            csr_data_q <= '0;
+            csrq[0].valid <= '0;
         end else begin
-            csr_addr_q <= csr_addr_d;
-            csr_valid_q <= csr_valid_d;
-            csr_data_q <= csr_data_d;
+            if(csrw.valid) begin
+                csrq[0] <= csrw;
+            end
+            if(csrq_pop) begin 
+                csrq[0].valid <= '0;
+            end
         end
     end
 
     /* When commit write CSR */
-    assign csr_io.waddr  = csr_addr_q;
-    assign csr_io.wdata  = csr_data_q;
-    assign csr_io.wvalid = '0; // TODO
+    assign csr_io.waddr  = csrq[0].addr;
+    assign csr_io.wdata  = csrq[0].data;
+    assign csr_io.wvalid = csrq_pop;
 
     /* Output */
     assign fuoutput_o.pc    = fuinput_i.pc;
@@ -69,6 +81,6 @@ module fu_csr #() (
     assign fuoutput_o_valid = fuinput_i_valid;
 
     /* Do CSR one by one */
-    assign fuinput_i_ready  = !csr_valid_q; // No RaW CSR !
+    assign fuinput_i_ready  = !csrq[0].valid; // No RaW CSR !
 
 endmodule

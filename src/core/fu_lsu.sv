@@ -7,9 +7,13 @@ module fu_lsu #() (
     output logic      fuinput_i_ready,
     output fu_output_t fuoutput_o,
     output logic       fuoutput_o_valid,
-
+    // Core   
+    input rob_entry_t   retire_entry_i,
+    input logic         retire_entry_i_valid,
     // Store do not use the fu_output_t port
-    output completion_port_t store_completion_o
+    output completion_port_t store_completion_o,
+    // To dcache
+    dcache_ports_if dcache_ports_io
 ); 
 
     typedef struct packed {
@@ -34,17 +38,27 @@ module fu_lsu #() (
     logic       sq_push_i_valid; // Input
     logic       sq_push_i_ready; // Output
     sq_entry_t  sq_push_data_i;
-    assign      sq_push_i_ready = !sq[sq_issue_id_q].valid;
+    // COmmit port
+    logic       sq_commit_i_valid;
+    sq_id_t     sq_commit_id_i;
+    // Pop port
+    /*output*/ sq_entry_t  sq_pop_entry_o;
+    /*input */ logic       sq_pop_i;
+
 
     // SQ pointers
     sq_id_t     sq_issue_id_q, sq_issue_id_d;
     assign      sq_issue_id_d = sq_issue_id_q + 1;
     sq_id_t     sq_commit_id_q, sq_commit_id_d;    
     assign      sq_commit_id_d = sq_commit_id_q + 1;
-    always_ff @(posedge clk) begin
+    sq_id_t     sq_pop_id_q,  sq_pop_id_d;    
+    assign      sq_pop_id_d = sq_pop_id_q + 1;
+    // Write ports
+    always_ff @(posedge clk) begin : write_ports
         if(!rstn) begin
             sq_issue_id_q <= '0;
             sq_commit_id_q <= '0;
+            sq_pop_id_q <= '0;
             for (int i = 0; i < NR_SQ_ENTRIES; i++) begin
                 sq[i].valid <= '0;
                 sq[i].commited <= '0;
@@ -52,18 +66,27 @@ module fu_lsu #() (
             end
         end else begin
             // 1 write port
-            if(sq_push_i_valid) begin
+            if (sq_push_i_valid) begin
                 sq[sq_issue_id_q] <= sq_push_data_i;
                 sq_issue_id_q <= sq_issue_id_d;
             end
             // 1 commit port
-
+            if (sq_commit_i_valid) begin
+                sq[sq_commit_id_q].commited <= '1;
+                sq_commit_id_q <= sq_commit_id_d;
+            end
+            // 1 pop port
+            if (sq_pop_i) begin
+                sq[sq_pop_id_q].valid <= '0;
+                sq_pop_id_q <= sq_pop_id_d;
+            end
         end
     end
-
+    // Read ports
+    assign sq_pop_entry_o = sq[sq_pop_id_q];
+    assign sq_push_i_ready = !sq[sq_issue_id_q].valid; // TODO cpy ?
 
     typedef struct packed {
-
         fu_output_t result;
     } lq_entry_t;
 
@@ -105,7 +128,6 @@ module fu_lsu #() (
 
     // Assume VIPT cache ?
 
-
     /* Output (only for LQ and AMO) */
     // TODO
     assign fuoutput_o.pc    = '0;
@@ -116,5 +138,29 @@ module fu_lsu #() (
 
     /* */
     assign fuinput_i_ready  = sq_push_i_ready; // For now only SQ
+
+    /* Commit path */
+    assign sq_commit_i_valid = retire_entry_i_valid &&
+                               retire_entry_i.needSQfree;
+
+    /* Cache store port */
+    logic complete_store;
+    /* three condition to complete a store (complete_store):
+     * 1) Cache must be ready
+     * 2) The latest sq entry must be valid
+     * 3) and no more speculative (<=> commited)
+     *
+     * When a store is sent to cache, it is also removed
+     * from the store queue
+     */
+    assign complete_store = dcache_ports_io.wready &&
+                            sq_pop_entry_o.valid &&
+                            sq_pop_entry_o.commited;
+    assign dcache_ports_io.waddr = sq_pop_entry_o.paddr;
+    assign dcache_ports_io.wsize = sq_pop_entry_o.size;
+    assign dcache_ports_io.wdata = sq_pop_entry_o.data;
+    assign dcache_ports_io.wvalid = complete_store;
+    
+    assign sq_pop_i = complete_store;
 
 endmodule

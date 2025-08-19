@@ -13,9 +13,11 @@ module system #() (
 
   parameter unsigned ADDR_WIDTH = 20;
   
+  dcache_ports_if dcache_ports_io();
+
   logic fetch_addr_valid, fetch_addr_ready;
   logic fetch_data_valid, fetch_data_ready;
-   
+
   core #() core (
     .clk(clk),
     .rstn(rstn),
@@ -26,8 +28,18 @@ module system #() (
     .fetch_data(fetch_data),
     .fetch_data_ready(fetch_data_ready),
     .exit_o(exit_o),
-    .exit_code_o(exit_code_o)
+    .exit_code_o(exit_code_o),
+    .dcache_ports_io(dcache_ports_io)
   );
+
+  // Fake write port TODO
+  assign dcache_ports_io.wready = '1;
+  always_ff @(posedge clk) begin 
+    if(dcache_ports_io.wvalid) begin
+      $warning("UNIMPLEMENTED STORES @=%x, D=%x",
+        dcache_ports_io.waddr, dcache_ports_io.wdata);
+    end
+  end
 
   /* Fake Memory */
   sram1rw #(

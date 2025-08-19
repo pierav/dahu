@@ -13,12 +13,17 @@ module core #() (
     output logic fetch_data_ready, // Received data from cache
 
     output logic exit_o,
-    output logic [C::XLEN-1:0] exit_code_o
+    output logic [C::XLEN-1:0] exit_code_o,
+    
+    dcache_ports_if dcache_ports_io
 );
     // Fetch
     fetch_data_t fetch_o;
     logic fetch_o_valid;
     logic fetch_o_ready;
+    bp_t bp;
+    logic bp_valid;
+    logic bp_ready;
 
     // Decode
     fetch_data_t decode_in_i; // Instruction to process
@@ -165,6 +170,11 @@ module core #() (
         .fetch_o_ready(fetch_o_ready)
     );
 
+    assign bp.pcnext = '0;
+    assign bp.taken = '0; // By default no taken
+    assign bp_valid = '0;
+    assign bp_ready = '0;
+
     /* Decode */
     decode #() decode (
         .clk(clk),
@@ -227,8 +237,13 @@ module core #() (
         .fuoutput_o(execute_fuoutput_o),
         .fuoutput_o_valid(execute_fuoutput_o_valid),
         .completion_ports_o(completion_ports),
-        .rob_head_is_csr_i('0), // TODO
-        .csr_io(csr_io)
+        .retire_entry_i(retire_entry),
+        .retire_entry_i_valid(retire_entry_valid),
+        .csr_io(csr_io),
+        .bp_i(bp),
+        .bp_i_valid(bp_valid),
+        .bp_i_ready(bp_ready),
+        .dcache_ports_io(dcache_ports_io)
     );
 
     csr_file #() csr_file (

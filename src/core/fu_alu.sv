@@ -77,22 +77,15 @@ module fu_alu #() (
     /* Final selection */
     logic [XLEN-1:0] result;
     always_comb begin
-        result = '0;
         unique case (fuinput_i.op.alu) // use alu set to avoid incomplteness
-            ADD, SUB, LUI, AUIPC: 
-                result = adder_final_result;
-            SLL, SRL, SRA: 
-                result = shifter_final_result;
-            AND:
-                result = opa64 & opb64;
-            OR:
-                result = opa64 | opb64;
-            XOR:
-                result = opa64 ^ opb64;
-            SLT:
-                result = XLEN'(slt_res_signed);
-            SLTU: 
-                result = XLEN'(slt_res_unsigned);
+            ADD, SUB, LUI, AUIPC: result = adder_final_result;
+            SLL, SRL, SRA:        result = shifter_final_result;
+            AND:                  result = opa64 & opb64;
+            OR:                   result = opa64 | opb64;
+            XOR:                  result = opa64 ^ opb64;
+            SLT:                  result = XLEN'(slt_res_signed);
+            SLTU:                 result = XLEN'(slt_res_unsigned);
+            default:              result = 'x; // don't care
         endcase
     end
 
