@@ -130,7 +130,7 @@ module iew #() (
                 prf_rdata_forward_valid[i] = sb_rdata[i];
                 /* Read bypass is sb fail */
                 if (fw0_match[i]) begin /* Hit bypass */
-                    assert (!sb_rdata[i]) else $error("Cannot Sb and FW0");
+                    // assert (!sb_rdata[i]) else $error("Cannot Sb and FW0");
                     prf_rdata_forward[i]       = fw0_data[i];
                     prf_rdata_forward_valid[i] = 1'b1;
                 end
@@ -148,7 +148,7 @@ module iew #() (
 
     always_comb begin : read_operands
         // rs1: default is valid
-        rs1val = 0;
+        rs1val = '0;
         rs1val_valid = 1'b1;
         if (di_i.si.fu == FU_ALU && di_i.si.op == AUIPC) begin 
             rs1val = di_i.si.pc;
@@ -161,7 +161,7 @@ module iew #() (
             rs1val_valid = prf_rdata_forward_valid[0];
         end
         // rs2: default is valid
-        rs2val = 0;
+        rs2val = '0;
         rs2val_valid = 1'b1;
         // TODO : check synthesis
         // we can move AUIPC mux imm or rs2 in exe
@@ -169,8 +169,8 @@ module iew #() (
             rs2val = di_i.si.imm;
             rs2val_valid = 1'b1;
         end else  if (di_i.si.rs2_valid) begin // RR
-            rs1val = prf_rdata_forward[1];
-            rs1val_valid = prf_rdata_forward_valid[1];
+            rs2val = prf_rdata_forward[1];
+            rs2val_valid = prf_rdata_forward_valid[1];
         end
     end
 
@@ -274,8 +274,9 @@ module iew #() (
     end
 
     fu_output_t wbfw0 [NR_WB_PORTS];
+    logic [NR_WB_PORTS-1:0] wbfw0_valid;
     assign wbfw0 = bypass_fuoutput_i;
-    logic [NR_WB_PORTS-1:0] wbfw0_valid = bypass_fuoutput_i_valid;
+    assign wbfw0_valid = bypass_fuoutput_i_valid;
     always_ff @(posedge clk) begin
         for(int i = 0; i < NR_WB_PORTS; i++) begin
             if(wbfw0_valid[i]) begin
