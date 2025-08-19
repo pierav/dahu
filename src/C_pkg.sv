@@ -1,23 +1,22 @@
 /* Config file */
 
 package C;
+    parameter int XLEN = 64;
+    // Register related
     parameter int AREG_ID_BITS = 5; // RISC-V constant
     parameter int PREG_ID_BITS = 4; // User defined
     parameter int PRFSIZE = 1 << PREG_ID_BITS;
     parameter int ARFSIZE = 1 << AREG_ID_BITS;
-    
-    parameter int XLEN = 64;
-
+    // Pipe width
     parameter int NR_ISSUE_PORTS = 1;
     parameter int NR_WB_PORTS = 1;
+    parameter int NR_COMPL_PORTS = NR_WB_PORTS + 1; // Completion ports
     parameter int NR_COMMIT_PORTS = 1;
-
-    parameter int NR_ISSUE_PRF_READ_PORTS = NR_ISSUE_PORTS * 2; // TODO fFMA
-
-    parameter ID_BITS = 10;
-    parameter NR_SQ_ENTRIES = 16;
+    parameter int NR_ISSUE_PRF_READ_PORTS = NR_ISSUE_PORTS * 2; // TODO FMA
+    // Number of inflight instructions related
+    parameter int ID_BITS = 10; // TDB accordingly with max inflights
+    parameter int NR_SQ_ENTRIES = 16;
     parameter int NR_ROB_ENTRIES = 32;
-
 
     /* Primitives types */
     typedef logic [ID_BITS-1:0]                id_t;
@@ -304,12 +303,19 @@ package C;
         inst_size_t        size;
     } fu_input_t;
 
+    // Write back port FU -> WB
     typedef struct packed {
         logic [XLEN-1:0]   pc;    // PC of the instruction (Debug only ?)
         logic[ID_BITS-1:0] id;    // Wakeup rob
         preg_id_t          prd;   // Where to wb inst
-        logic[XLEN-1:0]    rdval;    // Final result
+        logic[XLEN-1:0]    rdval;  // Final result
     } fu_output_t;
+
+    // Completion port FU -> ROB
+    typedef struct packed {
+        id_t     id; // id_t or rob_id_t ? DO wee need to compare order ?
+        logic    valid; // Insert the valid here to simplify intf
+    } completion_port_t;
 
     typedef struct packed {
         id_t id; // Debug only ?

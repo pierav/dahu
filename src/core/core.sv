@@ -50,6 +50,7 @@ module core #() (
     fu_bitvector_t  execute_fuinput_i_ready;
     fu_output_t     execute_fuoutput_o[NR_WB_PORTS];
     wb_bitvector_t  execute_fuoutput_o_valid;
+    completion_port_t completion_ports[NR_COMPL_PORTS];
 
     /* Write back */
     fu_output_t     wb_bypass_fuoutput_i[NR_WB_PORTS];
@@ -58,7 +59,7 @@ module core #() (
     wb_bitvector_t  wb_fuoutput_i_valid;
 
     /* Commit */
-    rob_entry_t     commit_entry;
+    rob_entry_t     retire_entry;
 
     // Pipeline stages handle
     /* Fetch -> decode */
@@ -186,7 +187,7 @@ module core #() (
         .di_o_valid(rename_di_o_valid), // The instruction is renammed
         .di_o_ready(rename_di_o_ready), // The next stage is ready
         // From commit
-        .commit_entry_i(commit_entry)
+        .retire_entry_i(retire_entry)
     );
 
     /* Issue */   
@@ -206,8 +207,10 @@ module core #() (
         .bypass_fuoutput_i_valid(wb_bypass_fuoutput_i_valid),
         .fuoutput_i(wb_fuoutput_i),
         .fuoutput_i_valid(wb_fuoutput_i_valid),
-        // Completed instruction
-        .commit_entry_o(commit_entry)
+        // EX -> ROB
+        .completion_ports_i(completion_ports),
+        // To commit instruction
+        .retire_entry_o(retire_entry)
     );
 
     /* Functionnals units */
@@ -218,7 +221,8 @@ module core #() (
         .fuinput_i_valid(execute_fuinput_i_valid),
         .fuinput_i_ready(execute_fuinput_i_ready),
         .fuoutput_o(execute_fuoutput_o),
-        .fuoutput_o_valid(execute_fuoutput_o_valid)
+        .fuoutput_o_valid(execute_fuoutput_o_valid),
+        .completion_ports_o(completion_ports)
     );
 
     initial begin
@@ -266,10 +270,10 @@ module core #() (
                 );
             end
         end
-        if(commit_entry.completed) begin
+        if(retire_entry.completed) begin
             handler_pkg::dpi_instr_commit(
-                32'(commit_entry.id),
-                commit_entry.pc
+                32'(retire_entry.id),
+                retire_entry.pc
             );
         end
         handler_pkg::dpi_tick();

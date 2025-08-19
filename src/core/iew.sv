@@ -16,8 +16,9 @@ module iew #() (
     input wb_bitvector_t bypass_fuoutput_i_valid,
     input fu_output_t    fuoutput_i[NR_WB_PORTS],
     input wb_bitvector_t fuoutput_i_valid,
+    input completion_port_t completion_ports_i[NR_COMPL_PORTS],
     // To pipeline
-    output rob_entry_t   commit_entry_o
+    output rob_entry_t   retire_entry_o
 );
     // TODO 0: Handle many write backs
     // TODO 1: Bancked PRF ?
@@ -100,28 +101,38 @@ module iew #() (
     assign arf_raddr[0] = di_i.si.rs1;
     assign arf_raddr[1] = di_i.si.rs2;
 
-    logic [XLEN-1:0] rs1val, rs2val;
-    logic rs1val_valid, rs2val_valid;
-
-    logic [NREAD-1:0] is_renammed = {di_i.prs2_renammed,
-                                     di_i.prs1_renammed};
     /* Read regs with bypass */
-    logic [NREAD-1:0][XLEN-1:0] prf_rdata_forward;
-    logic [NREAD-1:0]           prf_rdata_forward_valid;
+    logic [NREAD-1:0] is_renammed;
+    assign is_renammed[0] = di_i.prs1_renammed;
+    assign is_renammed[1] = di_i.prs2_renammed;
+    xlen_t [NREAD-1:0] prf_rdata_forward;
+    logic [NREAD-1:0]  prf_rdata_forward_valid;
+
+    logic [NREAD-1:0]  fw0_match;
+    xlen_t [NREAD-1:0] fw0_data;
+
     always_comb begin : read_regs_with_bypass
         for (int i = 0; i < NREAD; i++) begin
-            if(is_renammed[i]) begin
+            // Read bypass network (FW0)
+            fw0_match[i] = '0;
+            fw0_data[i] = 'x;
+            for (int j = 0; j < NR_WB_PORTS; j++) begin   
+                if (bypass_fuoutput_i_valid[j] &&
+                    bypass_fuoutput_i[j].prd == prf_raddr[i]) begin
+                    fw0_match[i] = '1;
+                    fw0_data[i]  = bypass_fuoutput_i[j].rdval;
+                end
+            end
+            prf_rdata_forward_valid[i] = '1;
+            if (is_renammed[i]) begin
                 /* Default : read prf */
-                prf_rdata_forward[i]       =  prf_rdata[i];
+                prf_rdata_forward[i]       = prf_rdata[i];
                 prf_rdata_forward_valid[i] = sb_rdata[i];
                 /* Read bypass is sb fail */
-                for (int j = 0; j < NR_WB_PORTS; j++) begin
-                    if (bypass_fuoutput_i_valid[j] &&
-                        bypass_fuoutput_i[j].prd == prf_raddr[i]) begin
-                        /* Hit bypass */
-                        prf_rdata_forward[i] = bypass_fuoutput_i[i].rdval;
-                        prf_rdata_forward_valid[i] = 1'b1;
-                    end
+                if (fw0_match[i]) begin /* Hit bypass */
+                    assert (!sb_rdata[i]) else $error("Cannot Sb and FW0");
+                    prf_rdata_forward[i]       = fw0_data[i];
+                    prf_rdata_forward_valid[i] = 1'b1;
                 end
             end else begin
                 /* Read ARF */
@@ -130,6 +141,10 @@ module iew #() (
             end
         end
     end
+
+    /* Setup operands rs1 and rs2 */
+    logic [XLEN-1:0] rs1val, rs2val;
+    logic rs1val_valid, rs2val_valid;
 
     always_comb begin : read_operands
         // rs1: default is valid
@@ -150,7 +165,7 @@ module iew #() (
         rs2val_valid = 1'b1;
         // TODO : check synthesis
         // we can move AUIPC mux imm or rs2 in exe
-        if (di_i.si.fu == FU_ALU && di_i.si.op == AUIPC) begin
+        if (!di_i.si.rs2_valid) begin
             rs2val = di_i.si.imm;
             rs2val_valid = 1'b1;
         end else  if (di_i.si.rs2_valid) begin // RR
@@ -193,25 +208,51 @@ module iew #() (
         if(di_i_valid) begin
             if(!nostall) begin
                 if(!ro_valid) begin
-                    cause = "FAIL IRO";
+                    cause = "FAIL IRO ";
                 end else if (!fu_valid) begin
-                    cause = "FAIL FU ";
+                    cause = "FAIL FU  ";
                 end else if (!serialisation_valid) begin
-                    cause = "FAIL SER";
+                    cause = "FAIL SER ";
                 end
             end else begin
-                cause = "SUCCESS ";
+                cause = "SUCCESS  ";
             end
         end
     end
     always_ff @(posedge clk) begin
         if(di_i_valid) begin
-            $display("Issue: (port0) %s: pc %x (sn=%d) rs1:%d=%d(%d) rs2:%d=%d(%d) fu:%d(%d) op:%d",
+            $display("Issue: (port0) %s: pc %x (sn=%x)%s%s fu:%x(%s) op:%x",
                 cause,
                 fuinput_o.pc, fuinput_o.id,
-                di_i.si.rs1, fuinput_o.rs1val, rs1val_valid,
-                di_i.si.rs2, fuinput_o.rs2val, rs2val_valid,
-                fuinput_o.fu, fu_valid,
+                di_i.si.rs1_valid ?
+                    $sformatf(" rs1:ar=%x:pr=%s:val=%s%s",
+                        di_i.si.rs1,
+                        di_i.prs1_renammed ?
+                            $sformatf("%x", di_i.prs1) :
+                            "AR",
+                        rs1val_valid ?
+                            $sformatf("%x",fuinput_o.rs1val) :
+                            "RaW",
+                        fw0_match[0] ?
+                            $sformatf(" (FromFW0:%x)", fw0_data[0]):
+                            "",
+                    ) : " ",
+                
+                di_i.si.rs2_valid ?
+                    $sformatf(" rs2:ar=%x:pr=%s:val=%s%s",
+                        di_i.si.rs2,
+                        di_i.prs2_renammed ?
+                             $sformatf("%x", di_i.prs2) :
+                             "AR",
+                        rs2val_valid ?
+                            $sformatf("%x", fuinput_o.rs2val) :
+                            "RaW",
+                        fw0_match[1] ?
+                            $sformatf(" (FromFW0:%x)", fw0_data[1]):
+                            "",
+                    ) : " ",
+
+                fuinput_o.fu, fu_valid ? "READY": "BUZY",
                 fuinput_o.op
             );
         end else begin
@@ -220,7 +261,7 @@ module iew #() (
     end
 
 
-    /* Backward path : update from execute */
+    /* Backward path : write back ! */
     always_comb begin
         for(int i = 0; i < NR_WB_PORTS; i++) begin
             prf_we[i]       = fuoutput_i_valid[i];
@@ -231,46 +272,48 @@ module iew #() (
             sb_wdata[i]     = 1'b1; // Data is valid
         end
     end
+
+    fu_output_t wbfw0 [NR_WB_PORTS];
+    assign wbfw0 = bypass_fuoutput_i;
+    logic [NR_WB_PORTS-1:0] wbfw0_valid = bypass_fuoutput_i_valid;
     always_ff @(posedge clk) begin
         for(int i = 0; i < NR_WB_PORTS; i++) begin
-            if(fuoutput_i_valid[i]) begin
-                $display("Wr-Ba: (port%1d) pc %x (sn=%d) prd:%d <- %x",
-                    i,
-                    fuoutput_i[i].pc, fuoutput_i[i].id,
-                    fuoutput_i[i].prd,
-                    fuoutput_i[i].rdval
+            if(wbfw0_valid[i]) begin
+                $display("WBFW0: (port%s) SUCCESS : pc %x (sn=%x) prd:%x <- %x",
+                    $sformatf("%1d", i),
+                    wbfw0[i].pc, wbfw0[i].id,
+                    wbfw0[i].prd,
+                    wbfw0[i].rdval
                 );
             end else begin
-                // $display("Wr-Ba: (port%d) no wb", i);
+                $display("WBFW0: (port%s) empty", $sformatf("%1d", i),);
             end
         end
     end
 
-
-    /* Broadcast valids from ex to rob */
+    /* Completion path */
     rob_entry_t [NR_ROB_ENTRIES-1:0] rob;
     logic       [NR_ROB_ENTRIES-1:0] rob_allocated;
-
     // ROB Inputs push
     logic       rob_push_i_valid; // Input
     logic       rob_push_i_ready; // Output
     rob_entry_t rob_push_data_i;
     assign      rob_push_i_ready = !rob_allocated[rob_issue_id_q];
-    // ROB Inputs WB
-    wb_bitvector_t  rob_wb_id_i_valid;
-    rob_id_t        rob_wb_id_i [NR_WB_PORTS];
+    // ROB Inputs completion
+    logic [NR_COMPL_PORTS-1:0] rob_cmpl_id_i_valid;
+    rob_id_t                   rob_cmpl_id_i [NR_COMPL_PORTS];
     // ROB Output Commit
     rob_entry_t rob_pop_data_o;
     logic       rob_pop_i;
     // ROB pointers
     rob_id_t    rob_issue_id_q, rob_issue_id_d;
     assign      rob_issue_id_d = rob_issue_id_q + 1;
-    rob_id_t    rob_commit_id_q, rob_commit_id_d;    
-    assign      rob_commit_id_d = rob_commit_id_q + 1;
+    rob_id_t    rob_retire_id_q, rob_retire_id_d;    
+    assign      rob_retire_id_d = rob_retire_id_q + 1;
     always_ff @(posedge clk) begin
         if(!rstn) begin
             rob_issue_id_q <= '0;
-            rob_commit_id_q <= '0;
+            rob_retire_id_q <= '0;
             for (int i = 0; i < NR_ROB_ENTRIES; i++) begin
                 rob[i].completed <= '0;
             end
@@ -284,20 +327,20 @@ module iew #() (
                 rob_issue_id_q <= rob_issue_id_d;
             end
             // Write Back ports
-            for (int i = 0; i < NR_WB_PORTS; i++) begin
-                if(rob_wb_id_i_valid[i]) begin
-                    rob[rob_wb_id_i[i]].completed <= '1;
+            for (int i = 0; i < NR_COMPL_PORTS; i++) begin
+                if(rob_cmpl_id_i_valid[i]) begin
+                    rob[rob_cmpl_id_i[i]].completed <= '1;
                 end
             end
             if (rob_pop_i) begin
-                $asserton(rob_allocated[rob_commit_id_d]);
-                rob_allocated[rob_commit_id_d] <= 1'b1;
-                rob_commit_id_q <= rob_commit_id_d;
+                $asserton(rob_allocated[rob_retire_id_q]);
+                rob_allocated[rob_retire_id_q] <= 1'b0;
+                rob_retire_id_q <= rob_retire_id_d;
             end
         end
     end
     // Commit ports read
-    assign rob_pop_data_o = rob[rob_commit_id_q];
+    assign rob_pop_data_o = rob[rob_retire_id_q];
 
     /* ROB: Insert in rob at issue for now */
     assign rob_push_i_valid = fuinput_o_valid;
@@ -308,49 +351,127 @@ module iew #() (
     assign rob_push_data_i.needprf2arf = di_i.si.rd_valid;
     assign rob_push_data_i.completed = '0;
 
-    /* ROB: Mark WB */
+    /* ROB: Mark completion  */
     always_comb begin
-        for(int i = 0; i < NR_WB_PORTS; i++) begin
-            rob_wb_id_i_valid[i] = fuoutput_i_valid[i];
-            rob_wb_id_i[i]       = rob_id_t'(fuoutput_i[i].id);
+        for(int i = 0; i < NR_COMPL_PORTS; i++) begin
+            rob_cmpl_id_i_valid[i] = completion_ports_i[i].valid;
+            rob_cmpl_id_i[i]       = rob_id_t'(completion_ports_i[i].id);
         end
     end
 
     // TODO retrieve PRF value at WB or at COMMIT1 -> COMMIT2 ?
     /* ROB: Commit */
-    rob_entry_t commit_entry_q, commit_entry_d;
-    xlen_t      commit_rdval_q, commit_rdval_d;
 
-    assign commit_entry_d   = rob_pop_data_o;
+    //
+    // PC -> FETCH -> DECODE -> RENAME -> 
+    // Add FW0+FW1 bypass:
+    // 
+    //    ISSUE    || EXECUTE ||  RETIRE    || COMMIT
+    //             ||         ||            ||
+    //        _____________________________>||_  Data
+    //       /       Req Read Commit PRF    || \
+    //       |     ||         ||  ________  || |
+    //       |     ||         || / ROB WB   || |
+    //       |     ||         || |          || |
+    //   PRF>M->M->|| **FUS** ||_/   W-BACK ||++->ARF 
+    //  ^    ^  ^  ||       | || \          || \ 
+    //  |    |  |  ||       | || |          || |
+    //  |    |  \___________/ || | WB       || |
+    //  |    |      FW0 (W)   || |          || |
+    //  \____\___________________/          || |
+    //  |           FW1 (W)      |          || |
+    //  \________________________/          || |
+    //     Req Read Commit prd              || |
+    //  <______________________________________/
+    //       Free Reg
+    //
+    // HAZARD: PRF must do bypass with WB for commit read port
+
+    // TODO: implement FW1 bypass
+    // Bypass network
+    //                           ____ PRF WRITE
+    //                         / 
+    // ADDI t1, t0, 1: [*IS*]|[*EX*]|[*WB*]|
+    //        \              | ____/|\_______  
+    //         \             |/ FW0 |  FW1 | \
+    // ADDI t2, t1, 1:       |[*IS*]|[*EX*]|`|
+    //          |                   |      |_/
+    //          |                   |      /
+    // ADDI t3, t1, 1;              |[*IS*]|
+    //
+    // FW0: Bypass 0 cycle after execute
+    // FW1: Bypass 1 cycle after execute
+    //  \====> Mandatory because data is still
+    //         not in the PRF.
+    //
+    // Can the address in FW0 collide with the address in FW1?
+    
+    // Retire stage
+    rob_entry_t retire_entry_q, retire_entry_d;
+    xlen_t      retire_rdval_q, retire_rdval_d;
+    assign retire_entry_d   = rob_pop_data_o; // Wires
+    
+    // Bypass needed here ?
     assign rob_pop_i        = rob_pop_data_o.completed;
     assign prf_raddr[2]     = rob_pop_data_o.prd; // PRF -> ARF port
-    assign commit_rdval_d   = prf_rdata[2];
+    assign retire_rdval_d   = prf_rdata[2];
     always_ff @(posedge clk) begin
         if(!rstn) begin 
-            commit_entry_q <= '0;
-            commit_rdval_q <= '0;
+            retire_entry_q <= '0;
+            retire_rdval_q <= '0;
         end else begin 
-            commit_entry_q <= commit_entry_d;
-            commit_rdval_q <= commit_rdval_d;
+            retire_entry_q <= retire_entry_d;
+            retire_rdval_q <= retire_rdval_d;
+        end
+    end
+
+    // Output retired inst
+    assign retire_entry_o = retire_entry_q;
+
+
+    always_ff @(posedge clk) begin
+        if(rob_allocated[rob_retire_id_q]) begin
+            $display("Retire: (port0) %s: pc %x (sn=%d) rd:%d=%d (wb?%d) v:%d",
+                rob_pop_data_o.completed ? "SUCCESS " : "FAILURE",
+                rob_pop_data_o.pc, rob_pop_data_o.id,
+                rob_pop_data_o.ard, rob_pop_data_o.prd,
+                rob_pop_data_o.needprf2arf, retire_rdval_q
+            );
+        end else begin 
+            $display("Retire: (port0) empty");
         end
     end
 
     /* Commit stage */
-    assign commit_entry_o = commit_entry_q;
+    rob_entry_t commit_entry_i;
+    xlen_t commit_retire_rdval_i;
 
-    logic commit_isrd_valid = commit_entry_q.completed &&
-                              commit_entry_q.needprf2arf;
+    assign commit_entry_i   = retire_entry_q;
+    assign commit_retire_rdval_i = retire_rdval_q;
+
+    logic retire_isrd_valid = commit_entry_i.completed &&
+                              commit_entry_i.needprf2arf;
     /* Free register : in rename stage ? */
-    // logic     commit_free_prd_valid;
-    // preg_id_t commit_free_prd;
-    // assign commit_free_prd_valid = commit_isrd_valid;
-    // assign commit_free_prd       = commit_entry_q.prd;
+    // logic     retire_free_prd_valid;
+    // preg_id_t retire_free_prd;
+    // assign retire_free_prd_valid = retire_isrd_valid;
+    // assign retire_free_prd       = retire_entry_q.prd;
     /* Update the architecural state */
-    assign arf_we[0]    = commit_isrd_valid;
-    assign arf_waddr[0] = commit_entry_q.ard;
-    assign arf_wdata[0] = commit_rdval_q;
-
-
+    assign arf_we[0]    = retire_isrd_valid;
+    assign arf_waddr[0] = retire_entry_q.ard;
+    assign arf_wdata[0] = retire_rdval_q;
+    always_ff @(posedge clk) begin
+        if(commit_entry_i.completed) begin
+            $display("Commit: (port0) %s: pc %x (sn=%d) rd:%d=%d (wb?%d) v:%d",
+                commit_entry_i.completed ? "SUCCESS " : "FAILURE",
+                commit_entry_i.pc, commit_entry_i.id,
+                commit_entry_i.ard, commit_entry_i.prd,
+                commit_entry_i.needprf2arf, retire_rdval_q
+            );
+        end else begin 
+            $display("Retire: (port0) empty");
+        end
+    end
 
 
 

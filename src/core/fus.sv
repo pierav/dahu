@@ -9,7 +9,10 @@ module fus #() (
     output fu_bitvector_t fuinput_i_ready,
     // Write back
     output fu_output_t    fuoutput_o[NR_WB_PORTS],
-    output wb_bitvector_t fuoutput_o_valid
+    output wb_bitvector_t fuoutput_o_valid,
+    // Completion ports
+    output completion_port_t completion_ports_o[NR_COMPL_PORTS]
+    
 );
 
     fu_input_t      fu_inputs[NB_FU];
@@ -19,6 +22,7 @@ module fus #() (
     fu_output_t     fu_outputs[NB_FU];
     fu_bitvector_t  fu_outputs_valids;
 
+    completion_port_t store_completion;
 
     // assign the instruction to the corresponding FU
     // TODO chandle mulitple ALU and multiple ISSUE
@@ -52,7 +56,8 @@ module fus #() (
         .fuinput_i_valid(fu_inputs_valids[FU_LSU]),
         .fuinput_i_ready(fu_inputs_readys[FU_LSU]),
         .fuoutput_o(fu_outputs[FU_LSU]),
-        .fuoutput_o_valid(fu_outputs_valids[FU_LSU])
+        .fuoutput_o_valid(fu_outputs_valids[FU_LSU]),
+        .store_completion_o(store_completion)
     );
 
 
@@ -84,6 +89,17 @@ module fus #() (
 
     // Send issue reayd funcs units
     assign fuinput_i_ready = fu_inputs_readys;
+
+    /* Output Completion */
+    always_comb begin
+        // The firsts completion ports are for WB ports
+        for (int wb_i = 0; wb_i < NR_WB_PORTS; wb_i++) begin
+            completion_ports_o[wb_i].id = fuoutput_o[wb_i].id;
+            completion_ports_o[wb_i].valid = fuoutput_o_valid[wb_i];
+        end
+        // The others are for stores and branch
+        completion_ports_o[0 + NR_WB_PORTS] = store_completion;
+    end
 
 endmodule
 

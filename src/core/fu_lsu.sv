@@ -6,7 +6,10 @@ module fu_lsu #() (
     input logic      fuinput_i_valid,
     output logic      fuinput_i_ready,
     output fu_output_t fuoutput_o,
-    output logic       fuoutput_o_valid
+    output logic       fuoutput_o_valid,
+
+    // Store do not use the fu_output_t port
+    output completion_port_t store_completion_o
 ); 
 
     typedef struct packed {
@@ -77,6 +80,7 @@ module fu_lsu #() (
     /*** Address computation ****/
     logic [XLEN-1:0] address_virt;
     assign address_virt = base_address_virt + imm;
+    logic translation_done = fuinput_i_valid; // TODO buffer while translation
 
     /* Address translation */
     // TODO mmu
@@ -85,7 +89,7 @@ module fu_lsu #() (
     assign address_phys = address_virt; 
 
     /* Insert in LQ/SQ */
-    assign sq_push_i_valid          = is_store && fuinput_i_valid;
+    assign sq_push_i_valid          = is_store && translation_done;
     assign sq_push_data_i.pc        = fuinput_i.pc;
     assign sq_push_data_i.id        = fuinput_i.id;
     assign sq_push_data_i.paddr     = address_phys;
@@ -94,7 +98,10 @@ module fu_lsu #() (
     assign sq_push_data_i.valid     = 1'b1;
     assign sq_push_data_i.commited  = 1'b0;
     assign sq_push_data_i.completed = 1'b0;
-   
+
+    /* Mark completion (after decided if the store is a fault or not) */
+    assign store_completion_o.id    = fuinput_i.id;
+    assign store_completion_o.valid = sq_push_i_valid; // complete when addr resolved
 
     // Assume VIPT cache ?
 

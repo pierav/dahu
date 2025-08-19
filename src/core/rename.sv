@@ -11,7 +11,7 @@ module rename #() (
     output logic di_o_valid, // The instruction is renammed
     input logic di_o_ready,   // The next stage is ready
 
-    input rob_entry_t commit_entry_i
+    input rob_entry_t retire_entry_i
 
 );
 
@@ -82,9 +82,9 @@ module rename #() (
 
     /* Rename */
     /* Commit -> Free */
-    assign free_valid = commit_entry_i.completed &&
-                        commit_entry_i.needprf2arf;
-    assign free_prd   = commit_entry_i.prd;
+    assign free_valid = retire_entry_i.completed &&
+                        retire_entry_i.needprf2arf;
+    assign free_prd   = retire_entry_i.prd;
 
     /* Rename -> Allocator */
     assign allocate = di_i_valid && can_allocate && di_i.si.rd_valid;
