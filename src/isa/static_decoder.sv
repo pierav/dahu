@@ -12,9 +12,8 @@ module static_decoder #() (
   logic valid;
 
   always_comb begin : decoder
-    fuop = C::I_NOP;
     valid = 1'b1;
-    casez (data_i)
+    unique casez (data_i)
       /* Trap-Return Instructions */    
       RVI::SRET: begin fuop = C::I_SRET; end
       RVI::MRET: begin fuop = C::I_MRET; end
@@ -101,6 +100,7 @@ module static_decoder #() (
       RVI::REMUW: begin fuop = C::I_REMUW; end
       default: begin
         valid = 1'b0;
+        fuop = '0;
       end
     endcase
   end

@@ -9,7 +9,7 @@ package C;
     parameter int ARFSIZE = 1 << AREG_ID_BITS;
     // Pipe width
     parameter int NR_ISSUE_PORTS = 1;
-    parameter int NR_WB_PORTS = 1;
+    parameter int NR_WB_PORTS = 2;
     parameter int NR_COMPL_PORTS = NR_WB_PORTS + 1; // Completion ports
     parameter int NR_COMMIT_PORTS = 1;
     parameter int NR_ISSUE_PRF_READ_PORTS = NR_ISSUE_PORTS * 2; // TODO FMA
@@ -38,7 +38,6 @@ package C;
 
     parameter NB_BITS_FU_OP = 5;
     typedef enum logic [NB_BITS_FU_OP-1:0] {
-        NOP,
         MRET, SRET, DRET,
         ECALL, EBREAK,
         WFI,
@@ -125,7 +124,7 @@ package C;
     } fuop_t;
 
     /* No instruction */
-    parameter fuop_t I_NOP       = {FU_NONE, NOP, SIZE_D, TYPE_R};
+    // parameter fuop_t I_NOP       = {FU_NONE, NOP, SIZE_D, TYPE_R};
 
     /* Chapter 25. RISC-V Privileged Instruction Set Listings */
     /* Trap-Return Instructions */    
@@ -327,3 +326,26 @@ package C;
     } rob_entry_t;
 
 endpackage
+
+interface csr_if #();
+    RV::csr_addr_t raddr; // Read port
+    xlen_t     rdata;
+    RV::csr_addr_t waddr; // Write port
+    xlen_t     wdata;
+    logic      wvalid;
+    modport master (
+        output raddr,
+        input  rdata,
+        output waddr,
+        output wdata,
+        output wvalid
+    );
+    modport slave (
+        input  raddr,
+        output rdata,
+        input  waddr,
+        input  wdata,
+        input  wvalid
+    );
+endinterface : csr_if
+

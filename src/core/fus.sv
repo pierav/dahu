@@ -11,8 +11,10 @@ module fus #() (
     output fu_output_t    fuoutput_o[NR_WB_PORTS],
     output wb_bitvector_t fuoutput_o_valid,
     // Completion ports
-    output completion_port_t completion_ports_o[NR_COMPL_PORTS]
-    
+    output completion_port_t completion_ports_o[NR_COMPL_PORTS],
+    // Core
+    input logic rob_head_is_csr_i,
+    csr_if.master csr_io
 );
 
     fu_input_t      fu_inputs[NB_FU];
@@ -39,7 +41,7 @@ module fus #() (
         end
     end
 
-
+    /* ALU */
     fu_alu #() fu_alu (
         .clk(clk),
         .rstn(rstn),
@@ -49,6 +51,7 @@ module fus #() (
     assign fu_inputs_readys[FU_ALU] = '1; // Always ready
     assign fu_outputs_valids[FU_ALU] = fu_inputs_valids[FU_ALU];
 
+    /* LSU */
     fu_lsu #() fu_lsu (
         .clk(clk),
         .rstn(rstn),
@@ -60,12 +63,24 @@ module fus #() (
         .store_completion_o(store_completion)
     );
 
+    /* MISC */
+    fu_csr #() fu_csr (
+        .clk(clk),
+        .rstn(rstn),
+        .fuinput_i(fu_inputs[FU_NONE]),
+        .fuinput_i_valid(fu_inputs_valids[FU_NONE]),
+        .fuinput_i_ready(fu_inputs_readys[FU_NONE]),
+        .fuoutput_o(fu_outputs[FU_NONE]),
+        .fuoutput_o_valid(fu_outputs_valids[FU_NONE]),
+        .rob_head_is_csr_i(rob_head_is_csr_i),
+        .csr_io(csr_io)
+    );
 
     /* TODO IMPLEMENT */
     /* FU STUBS */
     always_comb begin
         for (int fu_idx = 0; fu_idx < NB_FU; fu_idx++) begin
-            if(!(fu_t'(fu_idx) inside {FU_ALU, FU_LSU})) begin
+            if(!(fu_t'(fu_idx) inside {FU_ALU, FU_LSU, FU_NONE})) begin
                 fu_inputs_readys[fu_idx] = '0; // Not ready
                 fu_outputs_valids[fu_idx] = '0; // No results
                 fu_outputs[fu_idx] = '0;
@@ -86,6 +101,9 @@ module fus #() (
     // For now 1 FU -> 1WB port
     assign fuoutput_o[0] = fu_outputs[FU_ALU];
     assign fuoutput_o_valid[0] = fu_outputs_valids[FU_ALU];
+    // TODO multiplex FU_NONE !
+    assign fuoutput_o[1] = fu_outputs[FU_NONE];
+    assign fuoutput_o_valid[1] = fu_outputs_valids[FU_NONE];
 
     // Send issue reayd funcs units
     assign fuinput_i_ready = fu_inputs_readys;

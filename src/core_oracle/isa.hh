@@ -68,12 +68,12 @@
   /* RV32/RV64 Zifencei Standard Extension */ \
   INST(FENCE_I, 0, 0, "fence.i%c", 0) \
   /* RV32/RV64 Zicsr Standard Extension */ \
-  INST(CSRRC, 2, 0, "csrrc %s, %s, %s", rd(), csr(), rs1()) \
-  INST(CSRRCI, 2, 0, "csrrci %s, %s, %d", rd(), csr(), csr_uimm()) \
-  INST(CSRRS, 2, 0, "csrrs %s, %s, %s", rd(), csr(), rs1()) \
-  INST(CSRRSI, 2, 0, "csrrsi %s, %s, %d", rd(), csr(), csr_uimm()) \
-  INST(CSRRW, 2, 0, "csrrw %s, %s, %s", rd(), csr(), rs1()) \
-  INST(CSRRWI, 2, 0, "csrrwi %s, %s, %d", rd(), csr(), csr_uimm()) \
+  INST(CSRRC,  1, 1, "csrrc %s, %s, %s", rd(), csr(), rs1()) \
+  INST(CSRRCI, 0, 1, "csrrci %s, %s, %d", rd(), csr(), csr_uimm()) \
+  INST(CSRRS,  1, 1, "csrrs %s, %s, %s", rd(), csr(), rs1()) \
+  INST(CSRRSI, 0, 1, "csrrsi %s, %s, %d", rd(), csr(), csr_uimm()) \
+  INST(CSRRW,  1, 1, "csrrw %s, %s, %s", rd(), csr(), rs1()) \
+  INST(CSRRWI, 0, 1, "csrrwi %s, %s, %d", rd(), csr(), csr_uimm()) \
   /* RV32/RV64 M Standard Extension */ \
   INST(MUL, 2, 1, "mul %s, %s, %s", rd(), rs1(), rs2()) \
   INST(MULH, 2, 1, "mulh %s, %s, %s", rd(), rs1(), rs2()) \

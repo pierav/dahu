@@ -51,6 +51,7 @@ module core #() (
     fu_output_t     execute_fuoutput_o[NR_WB_PORTS];
     wb_bitvector_t  execute_fuoutput_o_valid;
     completion_port_t completion_ports[NR_COMPL_PORTS];
+    csr_if #()      csr_io();
 
     /* Write back */
     fu_output_t     wb_bypass_fuoutput_i[NR_WB_PORTS];
@@ -225,7 +226,15 @@ module core #() (
         .fuinput_i_ready(execute_fuinput_i_ready),
         .fuoutput_o(execute_fuoutput_o),
         .fuoutput_o_valid(execute_fuoutput_o_valid),
-        .completion_ports_o(completion_ports)
+        .completion_ports_o(completion_ports),
+        .rob_head_is_csr_i('0), // TODO
+        .csr_io(csr_io)
+    );
+
+    csr_file #() csr_file (
+        .clk(clk),
+        .rstn(rstn),
+        .csr_io(csr_io)
     );
 
     initial begin
