@@ -110,7 +110,7 @@ module static_decoder #() (
   always_comb begin : compute_imm
     // select immediate
     use_uimm = 0;
-    case (fuop.fmt)
+    unique case (fuop.fmt)
       C::TYPE_I: begin
         imm = {{XLEN - 12{data_i[31]}}, data_i[31:20]};
       end
@@ -140,9 +140,9 @@ module static_decoder #() (
   end
 
   logic rs1v, rs2v, rdv;
-  assign rs1v = fuop.fmt inside {C::TYPE_R, C::TYPE_I, C::TYPE_S, C::TYPE_B};
+  assign rs1v = fuop.fmt inside {C::TYPE_R, C::TYPE_I, C::TYPE_SHAMT, C::TYPE_S, C::TYPE_B};
   assign rs2v = fuop.fmt inside {C::TYPE_R, C::TYPE_S, C::TYPE_B};
-  assign rdv  = fuop.fmt inside {C::TYPE_R, C::TYPE_I, C::TYPE_U, C::TYPE_J};
+  assign rdv  = fuop.fmt inside {C::TYPE_R, C::TYPE_I, C::TYPE_U, C::TYPE_J, C::TYPE_SHAMT};
   // TODO handle special case : shamt and uimm
 
   assign si_o.pc        = pc_i;

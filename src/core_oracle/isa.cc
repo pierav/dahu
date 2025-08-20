@@ -32,3 +32,13 @@ const char* csr_name(uint32_t csr_num) {
         default: return "unknown_csr";
     }
 }
+
+/* Cache of static insts */
+static std::unordered_map<uint32_t /* opc*/, StaticInst> simap;
+
+const StaticInst* StaticInst::decode(uint32_t inst){
+    if (!simap.count(inst)){
+        simap[inst] = StaticInst(inst);
+    }
+    return &simap[inst];
+}
