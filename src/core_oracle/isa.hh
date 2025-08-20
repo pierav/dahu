@@ -13,7 +13,7 @@
   /* Interrupt-Management Instructions */ \
   INST(WFI, 0, 0, "wfi%c", 0) \
   /* RV32/RV64 I Base Instruction Set */ \
-  INST(LUI, 1, 0, "lui %s, %ld", rd(), u_imm()) \
+  INST(LUI, 0, 1, "lui %s, %ld", rd(), u_imm()) \
   INST(AUIPC, 0, 1, "auipc %s, %ld", rd(), u_imm()) \
   INST(JAL, 0, 1, "jal %s, %lx", rd(), j_imm()) \
   INST(JALR, 1, 1, "jalr %s, %s, %ld", rd(), rs1(), i_imm()) \

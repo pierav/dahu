@@ -87,7 +87,8 @@ struct DynamicInst {
            << "(sn:" << std::setfill('0') << std::setw(8) << std::dec 
            << id << ") "
            << "(" << std::setw(8) << std::setfill('0') << std::hex << si->instr << ") "
-           << std::dec << std::setfill(' ') << si->getDisas();
+           << std::left << std::setw(25) << std::setfill(' ')
+           << si->getDisas();
         if (renammed) {
             os << '[';
             if(si->nr_dst){
@@ -108,7 +109,7 @@ struct DynamicInst {
             if(si->nr_src >= 2){
                 dumpreg(os, si->rs2(), prs2, prs2_renammed);
                 if(issued){
-                    os << ":" << std::setw(16) << std::setfill('O') << std::hex
+                    os << ":" << std::setw(16) << std::setfill('0') << std::hex
                        << rs2val;
                 }
             }

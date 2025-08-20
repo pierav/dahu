@@ -41,6 +41,18 @@ module system #() (
     end
   end
 
+
+  // Fake sram read port TODO
+  assign dcache_ports_io.load_a_ready = '1;
+  always_ff @(posedge clk) begin 
+    if(dcache_ports_io.load_a_valid) begin
+      $warning("UNIMPLEMENTED LOAD @=%x, returns 0",
+        dcache_ports_io.load_a_addr);
+    end
+    dcache_ports_io.load_d_data <= '0;
+    dcache_ports_io.load_d_valid <= dcache_ports_io.load_a_valid;
+  end
+
   /* Fake Memory */
   sram1rw #(
     .ADDR_WIDTH(ADDR_WIDTH),

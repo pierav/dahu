@@ -9,7 +9,7 @@ package C;
     parameter int ARFSIZE = 1 << AREG_ID_BITS;
     // Pipe width
     parameter int NR_ISSUE_PORTS = 1;
-    parameter int NR_WB_PORTS = 2;
+    parameter int NR_WB_PORTS = 3;
     parameter int NR_COMPL_PORTS = NR_WB_PORTS + 2; // Completion ports
     parameter int NR_COMMIT_PORTS = 1;
     parameter int NR_ISSUE_PRF_READ_PORTS = NR_ISSUE_PORTS * 2; // TODO FMA
@@ -18,6 +18,11 @@ package C;
     parameter int NR_SQ_ENTRIES = 16;
     parameter int NR_ROB_ENTRIES = 32;
     parameter int NR_BQ_ENTRIES = 16; // Branch Queue entries
+
+    /* Memory subsystem */
+    parameter int CACHELINE_SIZE = 32;
+    parameter int NR_WB_PER_MSHR = 4;
+    parameter int NR_MSHR_ENTRIES = 16;
 
     /* Primitives types */
     typedef logic [ID_BITS-1:0]                id_t;
@@ -360,16 +365,31 @@ interface csr_if #();
     );
 endinterface : csr_if
 
-
-
 interface dcache_ports_if #();
-    xlen_t     waddr;
+    
+    // Load Address channel
+    xlen_t      load_a_addr;
+    inst_size_t load_a_size;
+    logic       load_a_valid;
+    logic       load_a_ready;
+    // Load Data channel
+    xlen_t      load_d_data;
+    logic       load_d_valid;
+
+    xlen_t      waddr;
     inst_size_t wsize;
-    xlen_t     wdata;
-    logic      wvalid;
-    logic      wready;
+    xlen_t      wdata;
+    logic       wvalid;
+    logic       wready;
 
     modport master (
+        output load_a_addr,
+        output load_a_size,
+        output load_a_valid,
+        input  load_a_ready,
+        input  load_d_data,
+        input  load_d_valid,
+
         output waddr,
         output wsize,
         output wdata,
@@ -377,11 +397,18 @@ interface dcache_ports_if #();
         input  wready
     );
     modport slave (
+        input  load_a_addr,
+        input  load_a_size,
+        input  load_a_valid,
+        output load_a_ready,
+        output load_d_data,
+        output load_d_valid,
+
         input  waddr,
         input  wsize,
         input  wdata,
         input  wvalid,
         output wready
     );
-endinterface : dcache_store_port_if
+endinterface : dcache_ports_if
 

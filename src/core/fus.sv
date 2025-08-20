@@ -134,6 +134,8 @@ module fus #() (
     // For now 1 FU -> 1WB port
     assign fuoutput_o[0] = fu_outputs[FU_ALU];
     assign fuoutput_o_valid[0] = fu_outputs_valids[FU_ALU];
+    assign fuoutput_o[2]       = fu_outputs[FU_LSU];
+    assign fuoutput_o_valid[2] = fu_outputs_valids[FU_LSU];
     // TODO multiplex FU_NONE !
     assign fuoutput_o[1] = fu_outputs[FU_NONE];
     assign fuoutput_o_valid[1] = fu_outputs_valids[FU_NONE];
