@@ -83,7 +83,7 @@ struct DynamicInst {
     std::ostream& dump(std::ostream& os) const {
         os << std::setw(16) << std::setfill(' ') << std::hex 
            << pc << ": "
-           << "(sn:" << std::setfill('0') << std::setw(8) << std::dec 
+           << "(sn=" << std::setfill('0') << std::setw(3) << std::hex
            << id << ") "
            << "(" << std::setw(8) << std::setfill('0') << std::hex << si->instr << ") "
            << std::left << std::setw(25) << std::setfill(' ')

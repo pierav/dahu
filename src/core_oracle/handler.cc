@@ -150,8 +150,9 @@ extern "C" void dpi_instr_writeback(
 // Commit event
 extern "C" void dpi_instr_commit(int id, uint64_t pc) {
     DynamicInst &inst = getInst(id, pc);
-    out << std::setw(16) << std::setfill('0') << std::right << std::dec
-        << cycle << ": "
+    // out << std::setw(16) << std::setfill('0') << std::right << std::dec
+    //     << cycle << ": "
+    out << "DPI-Commit: "
         << inst << std::endl;
     inst.committed = true;
     checker.on_commit(&inst);

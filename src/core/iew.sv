@@ -450,7 +450,7 @@ module iew #() (
 
     always_ff @(posedge clk) begin
         if(rob_allocated[rob_retire_id_q]) begin
-            $display("Retire: (port0) %s: pc %x (sn=%d) rd:%d=%d (wb?%d) v:%d",
+            $display("Retire: (port0) %s: pc %x (sn=%x) rd:%d=%d (wb?%d) v:%d",
                 rob_pop_data_o.completed ? "SUCCESS " : "FAILURE",
                 rob_pop_data_o.pc, rob_pop_data_o.id,
                 rob_pop_data_o.ard, rob_pop_data_o.prd,
@@ -465,29 +465,31 @@ module iew #() (
     rob_entry_t commit_entry_i;
     logic       commit_entry_i_valid;
     xlen_t      commit_retire_rdval_i;
+    logic       commit_entry_needarfw_i;
+    logic       commit_isrd_valid_i;
 
     assign commit_entry_i        = retire_entry_q;
     assign commit_entry_i_valid  = retire_entry_q_valid;
     assign commit_retire_rdval_i = retire_rdval_q;
-
-    logic retire_isrd_valid = commit_entry_i.completed &&
-                              commit_entry_i.needprf2arf;
+    assign commit_entry_needarfw_i = commit_entry_i.needprf2arf;
+    assign commit_isrd_valid_i  = commit_entry_i_valid &&
+                                  commit_entry_needarfw_i;
     /* Free register : in rename stage ? */
     // logic     retire_free_prd_valid;
     // preg_id_t retire_free_prd;
     // assign retire_free_prd_valid = retire_isrd_valid;
     // assign retire_free_prd       = retire_entry_q.prd;
     /* Update the architecural state */
-    assign arf_we[0]    = retire_isrd_valid;
-    assign arf_waddr[0] = retire_entry_q.ard;
-    assign arf_wdata[0] = retire_rdval_q;
+    assign arf_we[0]    = commit_isrd_valid_i;
+    assign arf_waddr[0] = commit_entry_i.ard;
+    assign arf_wdata[0] = commit_retire_rdval_i;
     always_ff @(posedge clk) begin
         if(commit_entry_i_valid) begin
-            $display("Commit: (port0) %s: pc %x (sn=%d) rd:%d=%d (wb?%d) v:%d",
+            $display("Commit: (port0) %s: pc %x (sn=%x) rd:%x=%x (wb?%d) v:%x",
                 commit_entry_i.completed ? "SUCCESS " : "FAILURE",
                 commit_entry_i.pc, commit_entry_i.id,
                 commit_entry_i.ard, commit_entry_i.prd,
-                commit_entry_i.needprf2arf, retire_rdval_q
+                commit_isrd_valid_i, commit_retire_rdval_i
             );
             $display("TRACE:", handler_pkg::dpi_inst_get_dump(
                 32'(commit_entry_i.id),  commit_entry_i.pc));

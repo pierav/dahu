@@ -23,6 +23,11 @@ module rename #() (
     preg_id_t rmt_write;            // input
     areg_id_t rmt_write_id;         // input
     logic rmt_write_valid;          // input
+
+    logic rmt_clear_i;
+    areg_id_t rmt_clear_id_i;
+    preg_id_t rmt_clear_preg_i;
+
     // the internal rmt
     preg_id_t rmt [ARFSIZE-1:0];
     logic [ARFSIZE-1:0] rmt_valid;
@@ -39,6 +44,12 @@ module rename #() (
             if(rmt_write_valid) begin
                 rmt[rmt_write_id]       <= rmt_write;
                 rmt_valid[rmt_write_id] <= 1'b1;
+            end
+            if(rmt_clear_i) begin
+                // Clear only if we own the entry
+                if(rmt[rmt_clear_id_i] == rmt_clear_preg_i) begin
+                    rmt_valid[rmt_clear_id_i] <= 1'b0; 
+                end
             end
         end
     end
@@ -83,10 +94,21 @@ module rename #() (
 
     /* Rename */
     /* Commit -> Free */
-    assign free_valid = retire_entry_i_valid &&
+    logic free_reg_i;
+    areg_id_t free_areg_id_i;
+    preg_id_t free_preg_id_i;
+    assign free_reg_i = retire_entry_i_valid &&
                         retire_entry_i.needprf2arf;
-    assign free_prd   = retire_entry_i.prd;
-
+    assign free_areg_id_i = retire_entry_i.ard;
+    assign free_preg_id_i = retire_entry_i.prd;
+    // Give back id to allocator 
+    assign free_valid = free_reg_i;
+    assign free_prd   = free_preg_id_i;
+    // Clear old rmt mapping
+    assign rmt_clear_i = free_reg_i;
+    assign rmt_clear_id_i = free_areg_id_i;
+    assign rmt_clear_preg_i = free_preg_id_i;
+    
     /* Rename -> Allocator */
     assign allocate = di_i_valid && can_allocate && di_i.si.rd_valid;
 
