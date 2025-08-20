@@ -37,11 +37,16 @@ module regfile #(
         end
     end
 
-    // Combinational reads
-    always_comb begin
-        for (int r = 0; r < NREAD; r++) begin
-            rdata[r] = regs[raddr[r]];
+    // Combinational reads with write-bypass
+    for (genvar r = 0; r < NREAD; r++) begin : READ_PORTS
+        always_comb begin
+            rdata[r] = regs[raddr[r]]; // Default from register array
+            for (int w = 0; w < NWRITE; w++) begin
+                if (we[w] && (waddr[w] == raddr[r])) begin
+                    rdata[r] = wdata[w];
+                end
+            end
         end
     end
- 
+
 endmodule
