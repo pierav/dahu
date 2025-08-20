@@ -52,7 +52,7 @@ enum inst_type_t {
   INST(ADDIW,   1, 1, TYPE_ALU,  4, "addi.w %s, %s, %ld", rd(), rs1(), i_imm()) \
   INST(ADDW,    1, 1, TYPE_ALU,  4, "add.w %s, %s, %s", rd(), rs1(), rs2()) \
   INST(AND,     2, 1, TYPE_ALU,  8, "and %s, %s, %s", rd(), rs1(), rs2()) \
-  INST(ANDI,    2, 1, TYPE_ALU,  8, "and %s, %s, %ld", rd(), rs1(), i_imm()) \
+  INST(ANDI,    1, 1, TYPE_ALU,  8, "and %s, %s, %ld", rd(), rs1(), i_imm()) \
   INST(OR,      2, 1, TYPE_ALU,  8, "or %s, %s, %s", rd(), rs1(), rs2()) \
   INST(ORI,     1, 1, TYPE_ALU,  8, "ori %s, %s, %ld", rd(), rs1(), i_imm()) \
   INST(XOR,     2, 1, TYPE_ALU,  8, "xor %s, %s, %s", rd(), rs1(), rs2()) \
