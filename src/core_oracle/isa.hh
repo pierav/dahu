@@ -205,6 +205,10 @@ class StaticInst {
                 memcpy(disas, "unimp", 6);
             }
         } while(0);
+        // Clear rd is x0
+        if(nr_dst && rdidx[0] == 0){
+            nr_dst = 0;
+        }
     }
 
     const char *getDisas() const { return disas; }
