@@ -20,7 +20,7 @@ package C;
     parameter int NR_BQ_ENTRIES = 16; // Branch Queue entries
 
     /* Memory subsystem */
-    parameter int CACHELINE_SIZE = 32;
+    parameter int CACHELINE_SIZE = 8; // TODO 32;
     parameter int NR_WB_PER_MSHR = 4;
     parameter int NR_MSHR_ENTRIES = 16;
 
@@ -38,7 +38,6 @@ package C;
     // We use an intermediate representation so as not to
     // manipulate the RISC-V ISA directly.
     // Each functional unit is associated with a set of operations.
-    
 
     // TODO use a width + sign bit in decoded instruction 
     // to avoid variant encoded in fu op set
@@ -370,7 +369,6 @@ interface dcache_ports_if #();
     
     // Load Address channel
     xlen_t      load_a_addr;
-    inst_size_t load_a_size;
     logic       load_a_valid;
     logic       load_a_ready;
     // Load Data channel
@@ -380,12 +378,12 @@ interface dcache_ports_if #();
     xlen_t      waddr;
     inst_size_t wsize;
     xlen_t      wdata;
+    logic [8-1:0] wmask;
     logic       wvalid;
     logic       wready;
 
     modport master (
         output load_a_addr,
-        output load_a_size,
         output load_a_valid,
         input  load_a_ready,
         input  load_d_data,
@@ -394,12 +392,12 @@ interface dcache_ports_if #();
         output waddr,
         output wsize,
         output wdata,
+        output wmask,
         output wvalid,
         input  wready
     );
     modport slave (
         input  load_a_addr,
-        input  load_a_size,
         input  load_a_valid,
         output load_a_ready,
         output load_d_data,
@@ -408,6 +406,7 @@ interface dcache_ports_if #();
         input  waddr,
         input  wsize,
         input  wdata,
+        input  wmask,
         input  wvalid,
         output wready
     );

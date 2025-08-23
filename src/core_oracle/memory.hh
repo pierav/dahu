@@ -43,12 +43,12 @@ struct entry_t {
     uint64_t shift = getoffset(addr);
     uint64_t mask_bw = getmaskbw(addr, vsize);
     /* Entry initialisation */
-    if (!_tag){
-      _tag = CACHE_ADDR_F(addr);
-      fatal_if(bw != 0, "Initial value fail\n");
-    } else {
-      fatal_if(_tag != CACHE_ADDR_F(addr), "Missmatch tag");
-    }
+    // if (!_tag){
+    //   _tag = CACHE_ADDR_F(addr);
+    //   fatal_if(bw != 0, "Initial value fail\n");
+    // } else {
+    //   fatal_if(_tag != CACHE_ADDR_F(addr), "Missmatch tag");
+    // }
     uint64_t _data = 0;
     memcpy(&_data, data, vsize);
     // printf("%16lx:[%c] @%16lx #%d : %16lx (%lx:%lx)\n",

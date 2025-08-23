@@ -28,7 +28,7 @@ module fetch #() (
 
     always_ff @(posedge clk) begin
         if(!rstn) begin
-            pc_q <= 0;
+            pc_q <= 64'h8000_0000;
             pq_buff_q <= 0;
         end else begin 
             // Not stalled (PC issued to memory)

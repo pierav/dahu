@@ -152,9 +152,9 @@ extern "C" void dpi_instr_commit(int id, uint64_t pc) {
     DynamicInst &inst = getInst(id, pc);
     // out << std::setw(16) << std::setfill('0') << std::right << std::dec
     //     << cycle << ": "
+    inst.committed = true;
     out << "DPI-Commit: "
         << inst << std::endl;
-    inst.committed = true;
     checker.on_commit(&inst);
 }
 

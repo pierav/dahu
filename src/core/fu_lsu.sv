@@ -78,6 +78,7 @@ module fu_lsu #() (
             // 1 pop port
             if (sq_pop_i) begin
                 sq[sq_pop_id_q].valid <= '0;
+                sq[sq_pop_id_q].commited <= '0;
                 sq_pop_id_q <= sq_pop_id_d;
             end
         end
@@ -145,12 +146,39 @@ module fu_lsu #() (
      * When a store is sent to cache, it is also removed
      * from the store queue
      */
+    // Mask store data for stores TODO: do thins at insertion !
+    xlen_t store_wdata;
+    logic[8-1:0] store_wmask;
+    logic [2:0] bo;
+    assign bo = sq_pop_entry_o.paddr[2:0];
+    always_comb begin
+        case (size)
+            SIZE_B: begin
+                store_wdata = {sq_pop_entry_o.data} << (8*bo);
+                store_wmask = 8'b0000_0001 << bo;
+            end
+            SIZE_H: begin
+                store_wdata = {sq_pop_entry_o.data} << (8*bo);
+                store_wmask = 8'b0000_0011 << bo;
+            end
+            SIZE_W: begin
+                store_wdata = {sq_pop_entry_o.data} << (8*bo);
+                store_wmask = 8'b0000_1111 << bo;
+            end
+            SIZE_D: begin
+                store_wdata = sq_pop_entry_o.data;
+                store_wmask = 8'hFF;
+            end
+        endcase
+    end
+
     assign complete_store = dcache_ports_io.wready &&
                             sq_pop_entry_o.valid &&
                             sq_pop_entry_o.commited;
     assign dcache_ports_io.waddr = sq_pop_entry_o.paddr;
     assign dcache_ports_io.wsize = sq_pop_entry_o.size;
-    assign dcache_ports_io.wdata = sq_pop_entry_o.data;
+    assign dcache_ports_io.wdata = store_wdata;
+    assign dcache_ports_io.wmask = store_wmask;
     assign dcache_ports_io.wvalid = complete_store;
     
     assign sq_pop_i = complete_store;
@@ -162,8 +190,9 @@ module fu_lsu #() (
     typedef logic[$clog2(CACHELINE_SIZE)-1:0] cacheline_bo_t;
     typedef logic[64-$clog2(CACHELINE_SIZE)-1:0] cacheline_addr_t;    
     typedef struct packed {
-        cacheline_bo_t position;
+        cacheline_bo_t bo;
         inst_size_t size;
+        logic sext;
     } mshr_wb_entry;
 
     typedef struct packed {
@@ -183,31 +212,58 @@ module fu_lsu #() (
     assign emmit_load_req = is_load && translation_done;
     
     assign dcache_ports_io.load_a_addr = address_phys;
-    assign dcache_ports_io.load_a_size = sq_pop_entry_o.size;
     assign dcache_ports_io.load_a_valid = emmit_load_req;
     
     typedef struct packed {
         pc_t pc;
         id_t id;
         preg_id_t prd;
+        mshr_wb_entry mshre;
     } wait_load_t;
 
     wait_load_t wait_load_d, wait_load_q;
     assign wait_load_d.pc = fuinput_i.pc;
     assign wait_load_d.id = fuinput_i.id;
     assign wait_load_d.prd = fuinput_i.prd;
-    
+    assign wait_load_d.mshre.bo = address_phys[2:0];
+    assign wait_load_d.mshre.size = fuinput_i.size;
+    assign wait_load_d.mshre.sext = fuinput_i.op != LU;
+
     always_ff @(posedge clk) begin
         if(emmit_load_req) begin
             wait_load_q <= wait_load_d;
         end
+    end
+    // Load extract + sign/zero extension
+    xlen_t load_data_raw, load_data;
+    xlen_t shifted;
+    logic [7:0]   b;
+    logic [15:0]  h;
+    logic [31:0]  w;
+    logic [63:0]  d;
+    assign load_data_raw = dcache_ports_io.load_d_data;
+    always_comb begin
+        shifted = load_data_raw >> (8*wait_load_q.mshre.bo);
+        b = shifted[7:0];
+        h = shifted[15:0];
+        w = shifted[31:0];
+        d = shifted[63:0];
+        unique case (wait_load_q.mshre.size)
+            SIZE_B: load_data = wait_load_q.mshre.sext ? 
+                {{XLEN-8{b[7]}},  b} : {{XLEN-8{1'b0}}, b};
+            SIZE_H: load_data = wait_load_q.mshre.sext ?
+                {{XLEN-16{h[15]}}, h} : {{XLEN-16{1'b0}}, h};
+            SIZE_W: load_data = wait_load_q.mshre.sext ?
+                {{XLEN-32{w[31]}}, w} : {{XLEN-32{1'b0}}, w};
+            SIZE_D: load_data = d; // full 64-bit load
+        endcase
     end
 
     /* Output (only for LQ and AMO) */
     assign fuoutput_o.pc    = wait_load_q.pc;
     assign fuoutput_o.id    = wait_load_q.id;
     assign fuoutput_o.prd   = wait_load_q.prd;
-    assign fuoutput_o.rdval = dcache_ports_io.load_d_data;
+    assign fuoutput_o.rdval = load_data;
     assign fuoutput_o_valid = dcache_ports_io.load_d_valid;
 
     /* Fu ready: Both store and load must be ready now */

@@ -56,7 +56,7 @@ struct DynamicInst {
         }
     }
 
-    bool isLoad(uint64_t& addr, uint8_t& size, uint64_t& rdata){
+    bool isLoad(uint64_t& addr, uint8_t& size, uint64_t& rdata) const {
         assert(si);
         assert(committed);
         if(si->type == TYPE_LOAD){
@@ -68,7 +68,7 @@ struct DynamicInst {
         return false;
     }
 
-    bool isStore(uint64_t& addr, uint8_t& size, uint64_t& wdata){
+    bool isStore(uint64_t& addr, uint8_t& size, uint64_t& wdata) const {
         assert(si);
         assert(committed);
         if(si->type == TYPE_STORE){
@@ -80,8 +80,15 @@ struct DynamicInst {
         return false;
     }
 
+    bool isMemRef(uint64_t &addr) const {
+        uint8_t size;
+        uint64_t data;
+        return isLoad(addr, size, data) ||
+               isStore(addr, size, data);
+    }
+
     std::ostream& dump(std::ostream& os) const {
-        os << std::setw(16) << std::setfill(' ') << std::hex 
+        os << std::setw(16) << std::setfill(' ') << std::hex << std::right
            << pc << ": "
            << "(sn=" << std::setfill('0') << std::setw(3) << std::hex
            << id << ") "
@@ -113,6 +120,14 @@ struct DynamicInst {
                 }
             }
             os << " ]";
+        }
+        if(committed) {
+            uint64_t addr;
+            if (isMemRef(addr)){
+                os << " V@:"
+                   << std::setw(16) << std::setfill('0') << std::hex << std::right
+                   << addr;
+            }
         }
         return os;
     }
