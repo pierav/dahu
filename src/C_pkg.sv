@@ -9,7 +9,7 @@ package C;
     parameter int ARFSIZE = 1 << AREG_ID_BITS;
     // Pipe width
     parameter int NR_ISSUE_PORTS = 1;
-    parameter int NR_WB_PORTS = 3;
+    parameter int NR_WB_PORTS = 4;
     parameter int NR_COMPL_PORTS = NR_WB_PORTS + 2; // Completion ports
     parameter int NR_COMMIT_PORTS = 1;
     parameter int NR_ISSUE_PRF_READ_PORTS = NR_ISSUE_PORTS * 2; // TODO FMA
