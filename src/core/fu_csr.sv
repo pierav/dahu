@@ -7,11 +7,12 @@ module fu_csr #() (
     output logic      fuinput_i_ready,
     output fu_output_t fuoutput_o,
     output logic       fuoutput_o_valid,
+    output logic       completion_o_valid,
     // Core   
     input rob_entry_t   retire_entry_i,
     input logic         retire_entry_i_valid,
     csr_if.master csr_io
-); 
+);
 
     /* Retrieve inputs */
     logic is_csr_i;
@@ -78,7 +79,8 @@ module fu_csr #() (
     assign fuoutput_o.id    = fuinput_i.id;
     assign fuoutput_o.prd   = fuinput_i.prd;
     assign fuoutput_o.rdval = is_csr_i ? csr_rdata : '0;
-    assign fuoutput_o_valid = fuinput_i_valid;
+    assign fuoutput_o_valid = is_csr_i ? fuinput_i_valid : '0;
+    assign completion_o_valid = fuinput_i_valid; // Always complete
 
     /* Do CSR one by one */
     assign fuinput_i_ready  = !csrq[0].valid; // No RaW CSR !

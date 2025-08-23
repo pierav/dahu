@@ -111,7 +111,7 @@ package C;
 
     // TODO create fmt for Ecall and Fence ? 
 
-    typedef enum logic [3-1:0] {
+    typedef enum logic [4-1:0] {
         TYPE_R,
         TYPE_I,
         TYPE_S,
@@ -119,7 +119,8 @@ package C;
         TYPE_U,
         TYPE_J, 
         TYPE_SHAMT,
-        TYPE_I_AND_UIMM
+        TYPE_I_AND_UIMM,
+        TYPE_R_FOR_CSR
     } inst_fmt_t;
 
    typedef struct packed {
@@ -134,12 +135,12 @@ package C;
 
     /* Chapter 25. RISC-V Privileged Instruction Set Listings */
     /* Trap-Return Instructions */    
-    parameter fuop_t I_SRET       = {FU_NONE, SRET, SIZE_D,      TYPE_R};
-    parameter fuop_t I_MRET       = {FU_NONE, MRET, SIZE_D,      TYPE_R};
+    parameter fuop_t I_SRET       = {FU_NONE, SRET, SIZE_D,      TYPE_I};
+    parameter fuop_t I_MRET       = {FU_NONE, MRET, SIZE_D,      TYPE_I};
     /* Interrupt-Management Instructions */
-    parameter fuop_t I_WFI        = {FU_NONE, WFI,  SIZE_D,      TYPE_R};
+    parameter fuop_t I_WFI        = {FU_NONE, WFI,  SIZE_D,      TYPE_I}; // TODO
     /* Supervisor Memory-Management Instructions */
-    parameter fuop_t I_SFENCE_VMA  = {FU_NONE, FENCE_VMA, SIZE_D, TYPE_R};
+    parameter fuop_t I_SFENCE_VMA  = {FU_NONE, FENCE_VMA, SIZE_D, TYPE_R}; // TODO
 
     /* RV32I Base Instruction Set */
     parameter fuop_t I_LUI    = {FU_ALU,    LUI,    SIZE_D, TYPE_U};
@@ -201,9 +202,9 @@ package C;
     parameter fuop_t I_FENCE_I = {FU_NONE,   FENCE_I,  SIZE_D,  TYPE_I};
 
     /* RV32/RV64 Zicsr Standard Extension */
-    parameter fuop_t I_CSRRW  = {FU_NONE,    CSR_WRITE,  SIZE_D, TYPE_R};
-    parameter fuop_t I_CSRRS  = {FU_NONE,    CSR_SET,    SIZE_D, TYPE_R};
-    parameter fuop_t I_CSRRC  = {FU_NONE,    CSR_CLEAR,  SIZE_D, TYPE_R};
+    parameter fuop_t I_CSRRW  = {FU_NONE,    CSR_WRITE,  SIZE_D, TYPE_R_FOR_CSR};
+    parameter fuop_t I_CSRRS  = {FU_NONE,    CSR_SET,    SIZE_D, TYPE_R_FOR_CSR};
+    parameter fuop_t I_CSRRC  = {FU_NONE,    CSR_CLEAR,  SIZE_D, TYPE_R_FOR_CSR};
     parameter fuop_t I_CSRRWI = {FU_NONE,    CSR_WRITE,  SIZE_D, TYPE_I_AND_UIMM};
     parameter fuop_t I_CSRRSI = {FU_NONE,    CSR_SET,    SIZE_D, TYPE_I_AND_UIMM};
     parameter fuop_t I_CSRRCI = {FU_NONE,    CSR_CLEAR,  SIZE_D, TYPE_I_AND_UIMM};

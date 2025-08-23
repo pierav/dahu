@@ -74,26 +74,69 @@ module iew #() (
 
     /* Scoreboard : decouple data and ctrl */
     // Write ports
-    logic [NR_WB_PORTS-1:0]                   sb_we;
-    logic [NR_WB_PORTS-1:0][PREG_ID_BITS-1:0] sb_waddr;
-    logic [NR_WB_PORTS-1:0]                   sb_wdata;
+    logic [NR_WB_PORTS-1:0]                   sb_wbs_we;
+    logic [NR_WB_PORTS-1:0][PREG_ID_BITS-1:0] sb_wbs_waddr;
+
+    logic [NR_ISSUE_PORTS-1:0]                   sb_iss_we;
+    logic [NR_ISSUE_PORTS-1:0][PREG_ID_BITS-1:0] sb_iss_waddr;
     // Read ports
     logic [NREAD-1:0][PREG_ID_BITS-1:0]  sb_raddr;
     logic [NREAD-1:0]                    sb_rdata;
-    regfile #(
-        .WIDTH(1),
-        .NREGS(PRFSIZE),
-        .NREAD(NREAD),
-        .NWRITE(NR_WB_PORTS)
-    ) scoreboard (
-        .clk(clk),
-        .rstn(rstn),
-        .we(sb_we),
-        .waddr(sb_waddr),
-        .wdata(sb_wdata),
-        .raddr(sb_raddr), 
-        .rdata(sb_rdata)
-    );
+
+    logic [PRFSIZE-1:0] sb_q, sb_d;
+    always_comb begin : sb_update
+        sb_d = sb_q;
+        // Set valid on WB
+        for (int i = 0; i < NR_WB_PORTS; i++) begin
+            if (sb_wbs_we[i]) begin
+                sb_d[sb_wbs_waddr[i]] = 1'b1;
+            end
+        end
+        // Clear valid on issue
+        for(int i = 0; i < NR_ISSUE_PORTS; i++) begin
+            if (sb_iss_we[i]) begin
+                sb_d[sb_iss_waddr[i]] = 1'b0;
+            end
+        end
+        // Asynchronous read ports (with bypass)
+        for (int i = 0; i < NREAD; i++) begin
+            sb_rdata[i] = sb_q[sb_raddr[i]];
+            // If any writeback this cycle matches this read address -> mark busy
+            for (int w = 0; w < NR_WB_PORTS; w++) begin
+                if (sb_wbs_we[w] && sb_wbs_waddr[w] == sb_raddr[i]) begin
+                    sb_rdata[i] = 1'b1;
+                end
+            end
+            // TODO handler RaW in the same cycle !
+            // // If any issue this cycle matches this read address -> mark free
+            // for (int w = NR_WB_PORTS; w < NR_WB_PORTS+NR_ISSUE_PORTS; w++) begin
+            //     if (sb_we[w] && sb_waddr[w] == sb_raddr[i])
+            //         sb_rdata[i] = 1'b0;
+            // end
+        end
+    end
+    always_ff @(posedge clk) begin
+        if(!rstn) begin
+            sb_q <= '0;
+        end else begin
+            sb_q <= sb_d;
+        end
+    end
+
+    // regfile #(
+    //     .WIDTH(1),
+    //     .NREGS(PRFSIZE),
+    //     .NREAD(NREAD),
+    //     .NWRITE(NR_WB_PORTS+NR_ISSUE_PORTS)
+    // ) scoreboard (
+    //     .clk(clk),
+    //     .rstn(rstn),
+    //     .we(sb_we),
+    //     .waddr(sb_waddr),
+    //     .wdata(sb_wdata),
+    //     .raddr(sb_raddr), 
+    //     .rdata(sb_rdata)
+    // );
 
     /* Read Scoreboard, PRF and ARF */
     assign sb_raddr[0] = di_i.prs1;
@@ -204,6 +247,13 @@ module iew #() (
     assign fuinput_o_valid      = di_i_valid && nostall;
     assign di_i_ready           = nostall;
 
+    /* mark the register as buzy */
+    always_comb begin
+        for (int i = 0; i < NR_ISSUE_PORTS; i++) begin
+            sb_iss_waddr[i] = fuinput_o.prd;
+            sb_iss_we[i]    = fuinput_o_valid && di_i.si.rd_valid;
+        end
+    end
     string cause;
     always_comb begin
         cause = "";
@@ -269,9 +319,8 @@ module iew #() (
             prf_we[i]       = fuoutput_i_valid[i];
             prf_waddr[i]    = fuoutput_i[i].prd;
             prf_wdata[i]    = fuoutput_i[i].rdval;
-            sb_we[i]        = fuoutput_i_valid[i];
-            sb_waddr[i]     = fuoutput_i[i].prd;
-            sb_wdata[i]     = 1'b1; // Data is valid
+            sb_wbs_we[i]        = fuoutput_i_valid[i];
+            sb_wbs_waddr[i]     = fuoutput_i[i].prd;
         end
     end
 

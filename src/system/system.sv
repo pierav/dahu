@@ -9,7 +9,9 @@ module system #() (
 );
 
   logic [C::XLEN-1:0] fetch_addr;
-  logic [32-1:0] fetch_data;
+  logic [32-1:0]      fetch_data;
+  logic [C::XLEN-1:0] fetch_data64;
+  logic               fetch_bo_q;
 
   parameter unsigned ADDR_WIDTH = 20;
   
@@ -32,38 +34,47 @@ module system #() (
     .dcache_ports_io(dcache_ports_io)
   );
 
-  // Fake write port TODO
+  // // Fake write port TODO
   assign dcache_ports_io.wready = '1;
-  always_ff @(posedge clk) begin 
-    if(dcache_ports_io.wvalid) begin
-      $warning("UNIMPLEMENTED STORES @=%x, D=%x",
-        dcache_ports_io.waddr, dcache_ports_io.wdata);
-    end
-  end
-
+  // always_ff @(posedge clk) begin 
+  //   if(dcache_ports_io.wvalid) begin
+  //     $warning("UNIMPLEMENTED STORES @=%x, D=%x",
+  //       dcache_ports_io.waddr, dcache_ports_io.wdata);
+  //   end
+  // end
 
   // Fake sram read port TODO
   assign dcache_ports_io.load_a_ready = '1;
   always_ff @(posedge clk) begin 
-    if(dcache_ports_io.load_a_valid) begin
-      $warning("UNIMPLEMENTED LOAD @=%x, returns 0",
-        dcache_ports_io.load_a_addr);
-    end
-    dcache_ports_io.load_d_data <= '0;
+    // if(dcache_ports_io.load_a_valid) begin
+    //   $warning("UNIMPLEMENTED LOAD @=%x, returns 0",
+    //     dcache_ports_io.load_a_addr);
+    // end
+    // dcache_ports_io.load_d_data <= '0;
     dcache_ports_io.load_d_valid <= dcache_ports_io.load_a_valid;
+    fetch_bo_q <= fetch_addr[2];
   end
 
   /* Fake Memory */
-  sram1rw #(
+  sram2r1w #(
     .ADDR_WIDTH(ADDR_WIDTH),
-    .DATA_WIDTH(32)
+    .DATA_WIDTH(64)
   ) simram (
     .clk(clk),
-    .we(1'b0),
-    .addr(fetch_addr[ADDR_WIDTH-1+2:2]),
-    .wdata(32'b0),
-    .rdata(fetch_data)
+    // 1 read port for fetch
+    .raddr(fetch_addr[ADDR_WIDTH-1+3:3]),
+    .rdata(fetch_data64),
+    // 1 read port for load
+    .raddr2(dcache_ports_io.load_a_addr[ADDR_WIDTH-1+3:3]),
+    .rdata2(dcache_ports_io.load_d_data),
+    // 1 write port for stores
+    .we(dcache_ports_io.wvalid),
+    .waddr(dcache_ports_io.waddr[ADDR_WIDTH-1+3:3]),
+    .wdata(dcache_ports_io.wdata)
   );
+  // Select word
+  assign fetch_data = fetch_bo_q ? fetch_data64[63:32] : fetch_data64[31:0];
+
   // SRAM always valid (1 cycle latency)
   always_ff @(posedge clk) begin
     if(!rstn) begin

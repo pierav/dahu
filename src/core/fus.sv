@@ -78,6 +78,7 @@ module fus #() (
     );
 
     /* MISC */
+    logic fu_none_completion_o_valid;
     fu_csr #() fu_csr (
         .clk(clk),
         .rstn(rstn),
@@ -86,6 +87,7 @@ module fus #() (
         .fuinput_i_ready(fu_inputs_readys[FU_NONE]),
         .fuoutput_o(fu_outputs[FU_NONE]),
         .fuoutput_o_valid(fu_outputs_valids[FU_NONE]),
+        .completion_o_valid(fu_none_completion_o_valid),
         .retire_entry_i(retire_entry_i),
         .retire_entry_i_valid(retire_entry_i_valid),
         .csr_io(csr_io)
@@ -134,26 +136,34 @@ module fus #() (
     // For now 1 FU -> 1WB port
     assign fuoutput_o[0] = fu_outputs[FU_ALU];
     assign fuoutput_o_valid[0] = fu_outputs_valids[FU_ALU];
+    assign completion_ports_o[0].id = fuoutput_o[0].id;
+    assign completion_ports_o[0].valid = fuoutput_o_valid[0];
+
     assign fuoutput_o[2]       = fu_outputs[FU_LSU];
     assign fuoutput_o_valid[2] = fu_outputs_valids[FU_LSU];
+    assign completion_ports_o[2].id = fuoutput_o[2].id;
+    assign completion_ports_o[2].valid = fuoutput_o_valid[2];
     // TODO multiplex FU_NONE !
     assign fuoutput_o[1] = fu_outputs[FU_NONE];
     assign fuoutput_o_valid[1] = fu_outputs_valids[FU_NONE];
+    assign completion_ports_o[1].id = fuoutput_o[1].id;
+    assign completion_ports_o[1].valid = fu_none_completion_o_valid;
 
+     // The others are for stores and branch
+    assign completion_ports_o[0 + NR_WB_PORTS] = store_completion;
+    assign completion_ports_o[1 + NR_WB_PORTS] = branch_completion;
+    
     // Send issue reayd funcs units
     assign fuinput_i_ready = fu_inputs_readys;
 
     /* Output Completion */
-    always_comb begin
-        // The firsts completion ports are for WB ports
-        for (int wb_i = 0; wb_i < NR_WB_PORTS; wb_i++) begin
-            completion_ports_o[wb_i].id = fuoutput_o[wb_i].id;
-            completion_ports_o[wb_i].valid = fuoutput_o_valid[wb_i];
-        end
-        // The others are for stores and branch
-        completion_ports_o[0 + NR_WB_PORTS] = store_completion;
-        completion_ports_o[1 + NR_WB_PORTS] = branch_completion;
-    end
+    // always_comb begin
+    //     // The firsts completion ports are for WB ports
+    //     for (int wb_i = 0; wb_i < NR_WB_PORTS; wb_i++) begin
+    //         completion_ports_o[wb_i].id = fuoutput_o[wb_i].id;
+    //         completion_ports_o[wb_i].valid = fuoutput_o_valid[wb_i];
+    //     end
+    // end
 
 endmodule
 

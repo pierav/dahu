@@ -144,12 +144,12 @@ module static_decoder #() (
   assign rs2 = data_i[24:20];
   assign rd = data_i[11:7];
   logic rs1v, rs2v, rdv;
-  // todo TYPE_I_AND_UIMM
+  // TODO TYPE_I_AND_UIMM
   assign rs1v = fuop.fmt inside {C::TYPE_R, C::TYPE_I, C::TYPE_SHAMT,
-                                 C::TYPE_S, C::TYPE_B};
+                                 C::TYPE_S, C::TYPE_B, C::TYPE_R_FOR_CSR};
   assign rs2v = fuop.fmt inside {C::TYPE_R, C::TYPE_S, C::TYPE_B};
   assign rdv  = fuop.fmt inside {C::TYPE_R, C::TYPE_I, C::TYPE_U,
-                                 C::TYPE_J, C::TYPE_SHAMT} &&
+                                 C::TYPE_J, C::TYPE_SHAMT, C::TYPE_R_FOR_CSR} &&
                 rd != 0; // Handle the risc-v x0 hardwired to 0
   // TODO handle special case : shamt and uimm
 
