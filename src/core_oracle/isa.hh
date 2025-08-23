@@ -39,9 +39,9 @@ enum inst_type_t {
   INST(LB,      1, 1, TYPE_LOAD, 1, "lb %s, %ld(%s)", rd(), i_imm(), rs1()) \
   INST(LH,      1, 1, TYPE_LOAD, 2, "lh %s, %ld(%s)", rd(), i_imm(), rs1()) \
   INST(LW,      1, 1, TYPE_LOAD, 4, "lw %s, %ld(%s)", rd(), i_imm(), rs1()) \
-  INST(LBU,     1, 1, TYPE_LOAD, 4, "lbu %s, %ld(%s)", rd(), i_imm(), rs1()) \
-  INST(LHU,     1, 1, TYPE_LOAD, 2, "lhu %s, %ld(%s)", rd(), i_imm(), rs1()) \
   INST(LD,      1, 1, TYPE_LOAD, 8, "ld %s, %ld(%s)", rd(), i_imm(), rs1()) \
+  INST(LBU,     1, 1, TYPE_LOAD, 1, "lbu %s, %ld(%s)", rd(), i_imm(), rs1()) \
+  INST(LHU,     1, 1, TYPE_LOAD, 2, "lhu %s, %ld(%s)", rd(), i_imm(), rs1()) \
   INST(LWU,     1, 1, TYPE_LOAD, 4, "lwu %s, %ld(%s)", rd(), i_imm(), rs1()) \
   INST(SB,      2, 0, TYPE_STORE,1, "sb %s, %ld(%s)", rs2(), s_imm(), rs1()) \
   INST(SH,      2, 0, TYPE_STORE,2, "sh %s, %ld(%s)", rs2(), s_imm(), rs1()) \
