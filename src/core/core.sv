@@ -21,9 +21,8 @@ module core #() (
     fetch_data_t fetch_o;
     logic fetch_o_valid;
     logic fetch_o_ready;
-    bp_t bp;
-    logic bp_valid;
-    logic bp_ready;
+    bq_push_if #() bq_push_io();
+
 
     // Decode
     fetch_data_t decode_in_i; // Instruction to process
@@ -170,21 +169,17 @@ module core #() (
         .fetch_o_ready(fetch_o_ready)
     );
 
-    assign bp.pcnext = '0;
-    assign bp.taken = '0; // By default no taken
-    assign bp_valid = '0;
-    assign bp_ready = '0;
-
     /* Decode */
     decode #() decode (
         .clk(clk),
         .rstn(rstn),
-        .in_i(decode_in_i),  // Instruction to process
-        .in_i_valid(decode_in_i_valid),  // Instruction to process is here
+        .in_i(decode_in_i),             // Instruction to process
+        .in_i_valid(decode_in_i_valid), // Instruction to process is here
         .in_i_ready(decode_in_i_ready), // Ready to decode new one
-        .di_o(decode_di_o),        // The decoded instruction 
+        .di_o(decode_di_o),             // The decoded instruction 
         .di_o_valid(decode_di_o_valid), // The instruction is decoded
-        .di_o_ready(decode_di_o_ready)   // The next stage is ready
+        .di_o_ready(decode_di_o_ready), // The next stage is ready
+        .bq_push_io(bq_push_io)
     );
 
 
@@ -240,9 +235,7 @@ module core #() (
         .retire_entry_i(retire_entry),
         .retire_entry_i_valid(retire_entry_valid),
         .csr_io(csr_io),
-        .bp_i(bp),
-        .bp_i_valid(bp_valid),
-        .bp_i_ready(bp_ready),
+        .bq_push_io(bq_push_io),
         .dcache_ports_io(dcache_ports_io)
     );
 

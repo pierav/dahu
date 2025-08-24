@@ -16,11 +16,8 @@ module fus #() (
     input rob_entry_t   retire_entry_i,
     input logic         retire_entry_i_valid,
     csr_if.master csr_io,
-
     // From/To BP
-    input bp_t bp_i,
-    input logic bp_i_valid,
-    output logic bp_i_ready,
+    bq_push_if.slave bq_push_io,
 
     // Caches
     dcache_ports_if dcache_ports_io
@@ -101,9 +98,7 @@ module fus #() (
         .fuinput_i_valid(fu_inputs_valids[FU_CTRL]),
         .fuinput_i_ready(fu_inputs_readys[FU_CTRL]),
         .branch_completion_o(branch_completion),
-        .bp_i(bp_i),
-        .bp_i_valid(bp_i_valid),
-        .bp_i_ready(bp_i_ready),
+        .bq_push_io(bq_push_io),
         .retire_entry_i(retire_entry_i),
         .retire_entry_i_valid(retire_entry_i_valid)
     );

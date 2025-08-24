@@ -236,6 +236,7 @@ module iew #() (
     assign fuinput_o.fu         = di_i.si.fu;
     assign fuinput_o.op         = di_i.si.op;
     assign fuinput_o.size       = di_i.si.size;
+    assign fuinput_o.bqid       = di_i.bqid;
 
     logic nostall;
     assign nostall = !di_i_valid ||

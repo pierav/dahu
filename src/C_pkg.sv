@@ -259,10 +259,16 @@ package C;
     // parameter fuop_t FSH = {FU_LSU, FSH};
     // parameter fuop_t FSB = {FU_LSU, FSB};
 
+    // Branch prediction
+    typedef struct packed {
+        xlen_t pcnext;
+        logic taken;
+    } bp_t;
 
     typedef struct {
         logic [XLEN-1:0] pc;    // PC of the instruction
         logic [32-1:0]   data;  // Assembly code
+        bp_t             bp;    // Branch prediction
     } fetch_data_t;
 
     // unpacked to allow easy DPI
@@ -293,6 +299,7 @@ package C;
         preg_id_t prs2;
         logic prs2_renammed;
         preg_id_t prd; // Always renammed 
+        bq_id_t            bqid; // Branch Queue ID used by branchs
     } di_t; // DynamicInst
 
     /* Packed everything to make verilator happy */
@@ -306,6 +313,7 @@ package C;
         fu_t               fu;    // functional unit to use
         fu_set_t           op;    // operation to perform
         inst_size_t        size;
+        bq_id_t            bqid; // Branch Queue ID used by branchs
     } fu_input_t;
 
     // Write back port FU -> WB
@@ -334,11 +342,7 @@ package C;
         logic completed; // WB performed
     } rob_entry_t;
 
-    // Branch prediction
-    typedef struct packed {
-        xlen_t pcnext;
-        logic taken;
-    } bp_t;
+
 
     
     typedef struct packed {
@@ -441,6 +445,30 @@ interface csr_if #();
         input  wvalid
     );
 endinterface : csr_if
+
+interface bq_push_if #();
+    pc_t pc; // debug only ?
+    id_t id; // debug only
+    bp_t  bp;   // single prediction
+    // Use intf to easyly extends this class (Ras state ...)
+    logic valid;
+    logic ready;
+    bq_id_t bqid; // Index to write back branch OoO
+
+    modport master (
+        output pc,
+        output id,
+        output bp,
+        output valid,
+        input ready, bqid
+    );
+    modport slave (
+        input pc, id,
+        input bp,
+        input valid,
+        output ready, bqid
+    );
+endinterface
 
 interface dcache_ports_if #();
     

@@ -182,16 +182,14 @@ module rename #() (
     assign rmt_read_id[1] = di_i.si.rs2;
     
     /* Final output */
-    assign di_o.si              = di_i.si;
-    assign di_o.id              = di_i.id;
-    assign di_o.fault           = di_i.fault;
-    assign di_o.valid           = di_i.valid;
-    assign di_o.prs1            = rmt_reads[0];
-    assign di_o.prs1_renammed   = rmt_reads_valid[0];
-    assign di_o.prs2            = rmt_reads[1];
-    assign di_o.prs2_renammed   = rmt_reads_valid[1];
-    assign di_o.prd             = allocated_preg;
-
+    always_comb begin : output_inst
+        di_o                 = di_i; // Copy everytging !
+        di_o.prs1            = rmt_reads[0];
+        di_o.prs1_renammed   = rmt_reads_valid[0];
+        di_o.prs2            = rmt_reads[1];
+        di_o.prs2_renammed   = rmt_reads_valid[1];
+        di_o.prd             = allocated_preg;
+    end
     logic stall;
     assign stall = di_i_valid && di_i.si.rd_valid && !can_allocate;
     /* Ready valid */

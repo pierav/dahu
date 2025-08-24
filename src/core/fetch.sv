@@ -12,8 +12,8 @@ module fetch #() (
     output logic fetch_data_ready, // Received data from cache
     /* F1 <-> Dec */
     output fetch_data_t fetch_o,
-    output logic fetch_o_valid,
-    input logic fetch_o_ready
+    output logic        fetch_o_valid,
+    input logic         fetch_o_ready
 );
     // Send to cache
     logic [XLEN-1:0] pc_q, pc_d;
@@ -24,7 +24,17 @@ module fetch #() (
     assign pc_buff_d = pc_q;
 
     // Compute next pc
-    assign pc_d = pc_q + 4;
+    bp_t prediction_0;
+    bpred bpred (
+        .clk(clk),
+        .rstn(rstn),
+        .valid(fetch_addr_valid), // Always predict
+        .ready(fetch_o_ready),
+        .pc(pc_q),
+        .prediction_0(prediction_0)
+    );
+
+    assign pc_d = prediction_0.pcnext;
 
     always_ff @(posedge clk) begin
         if(!rstn) begin
@@ -39,10 +49,10 @@ module fetch #() (
         end
     end
 
-    assign fetch_o.pc = pq_buff_q;
-    assign fetch_o.data = fetch_data;
+    assign fetch_o.pc    = pq_buff_q;
+    assign fetch_o.data  = fetch_data;
     assign fetch_o_valid = fetch_data_valid;
-
+    assign fetch_o.bp    = prediction_0;
     assign fetch_data_ready = 1'b1; // ?
 endmodule
 
