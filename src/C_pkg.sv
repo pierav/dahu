@@ -340,6 +340,24 @@ package C;
         logic taken;
     } bp_t;
 
+    
+    typedef struct packed {
+        id_t id;            // Debug only ?
+        xlen_t pc;          // Debug only ?
+        xlen_t paddr;       // the paddr
+
+        // Naive:
+        // inst_size_t size;   // DW, W, H or Byte
+        // xlen_t data;
+        // Formatted (to help STLF)
+        logic [8-1:0] fmask;
+        xlen_t        fdata;
+
+        logic valid;        // Entry used
+        logic commited;     // Entry used
+        logic completed;
+    } sq_entry_t;
+
 
     /********** A LOT OF DISLAYER *************/
 
@@ -435,7 +453,7 @@ interface dcache_ports_if #();
     logic       load_d_valid;
 
     xlen_t      waddr;
-    inst_size_t wsize;
+    // inst_size_t wsize;
     xlen_t      wdata;
     logic [8-1:0] wmask;
     logic       wvalid;
@@ -449,7 +467,7 @@ interface dcache_ports_if #();
         input  load_d_valid,
 
         output waddr,
-        output wsize,
+        // output wsize,
         output wdata,
         output wmask,
         output wvalid,
@@ -463,7 +481,7 @@ interface dcache_ports_if #();
         output load_d_valid,
 
         input  waddr,
-        input  wsize,
+        // input  wsize,
         input  wdata,
         input  wmask,
         input  wvalid,

@@ -1,4 +1,95 @@
 
+
+module forward_from_sq(
+    input sq_entry_t [NR_SQ_ENTRIES-1:0] sq_i,
+    input sq_id_t sq_issue_id_i,
+    input xlen_t load_addr_i,
+    input inst_size_t size_i,
+    input logic valid_i,
+    output logic [8-1:0] fw_mask_o,
+    output xlen_t        fw_data_o,
+    output logic         stlf_fully_satisfied_o
+); 
+    // 0) Order sq so simply indexing ?
+    sq_entry_t [NR_SQ_ENTRIES-1:0] sq_ordered;
+    always_comb begin
+        for (int i = 0; i < NR_SQ_ENTRIES; i++) begin
+            sq_id_t idx = (sq_issue_id_i - sq_id_t'(1 - i + NR_SQ_ENTRIES));
+            sq_ordered[i] = sq_i[idx];
+        end
+    end
+
+    // CAM-based STLF (byte-granular merged forwarding)
+    localparam int BYTES = XLEN/8;
+    localparam int TAG_HI = XLEN-1;
+    localparam int TAG_LO = $clog2(BYTES);
+
+    // Format load addr/size
+    logic [XLEN-1:TAG_LO] load_tag = load_addr_i[XLEN-1:TAG_LO];
+    logic [2:0]           load_bo  = load_addr_i[2:0];
+    logic [XLEN/8-1:0]    load_mask;
+    always_comb begin
+        load_mask = '0;
+        unique case (size_i)
+            SIZE_B: load_mask = (8'b0000_0001 << load_bo);
+            SIZE_H: load_mask = (8'b0000_0011 << load_bo);
+            SIZE_W: load_mask = (8'b0000_1111 << load_bo);
+            SIZE_D: load_mask = 8'hFF;
+            default: load_mask = '0;
+        endcase
+    end
+
+    // 1) Build match vector (CAM comparators)
+    logic [NR_SQ_ENTRIES-1:0] match_vec_ord;
+    always_comb begin
+        if(valid_i) begin
+            for (int i = 0; i < NR_SQ_ENTRIES; i++) begin
+                // compare DW@
+                match_vec_ord[i] = (sq_ordered[i].paddr[XLEN-1:TAG_LO] == load_tag) &&
+                                    sq_ordered[i].valid;
+                // TODO COMPARE ID !!!
+            end
+        end else begin
+            match_vec_ord = '0;
+        end
+    end
+
+    // 2) CAM priority merging (youngest -> oldest).
+    logic [XLEN/8-1:0] fw_mask;
+    xlen_t             fw_data;
+    logic [BYTES-1:0] new_bytes;
+    always_comb begin
+        fw_mask = '0;
+        fw_data = '0;
+        new_bytes = '0;
+        if(valid_i) begin
+            // walk from youngest to oldest
+            for (int idx = 0; idx < NR_SQ_ENTRIES; idx++) begin
+                // only consider candidate entries
+                if (match_vec_ord[idx]) begin
+                    // pick only bytes that are part of the requested load and not yet forwarded
+                    new_bytes = sq_ordered[idx].fmask & load_mask & ~fw_mask;
+                    // copy bytes from st_shifted into fw_data
+                    for (int b = 0; b < BYTES; b++) begin
+                        if (new_bytes[b]) fw_data[8*b +: 8] = sq_ordered[idx].fdata[8*b +: 8];
+                    end
+                    fw_mask |= new_bytes;
+                    // stop early if all bytes satisfied
+                    if ((fw_mask & load_mask) == load_mask) begin
+                        break;
+                    end
+                end
+            end
+        end
+    end
+
+    // Outputs results
+    assign fw_mask_o = fw_mask;
+    assign fw_data_o = fw_data;
+    assign stlf_fully_satisfied_o = ((fw_mask & load_mask) == load_mask);
+
+endmodule
+
 module fu_lsu #() (
     input logic clk,
     input logic rstn,
@@ -19,18 +110,6 @@ module fu_lsu #() (
     typedef struct packed {
         logic nc;
     } req_flags_t;
-
-    typedef struct packed {
-        id_t id;            // Debug only ?
-        xlen_t pc;          // Debug only ?
-        xlen_t paddr;       // the paddr
-        inst_size_t size;   // DW, W, H or Byte
-        xlen_t data;
-
-        logic valid;        // Entry used
-        logic commited;     // Entry used
-        logic completed;
-    } sq_entry_t;
 
     sq_entry_t [NR_SQ_ENTRIES-1:0] sq;
 
@@ -115,13 +194,41 @@ module fu_lsu #() (
     logic [XLEN-1:0] address_phys;
     assign address_phys = address_virt; 
 
+    // Mask store data for stores
+    xlen_t store_wdata;
+    logic[8-1:0] store_wmask;
+    logic [2:0] bo;
+    assign bo = address_phys[2:0];
+    always_comb begin
+        case (size)
+            SIZE_B: begin
+                store_wdata = {store_value} << (8*bo);
+                store_wmask = 8'b0000_0001 << bo;
+            end
+            SIZE_H: begin
+                store_wdata = {store_value} << (8*bo);
+                store_wmask = 8'b0000_0011 << bo;
+            end
+            SIZE_W: begin
+                store_wdata = {store_value} << (8*bo);
+                store_wmask = 8'b0000_1111 << bo;
+            end
+            SIZE_D: begin
+                store_wdata = store_value;
+                store_wmask = 8'hFF;
+            end
+        endcase
+    end
+
     /* Insert in LQ/SQ */
     assign sq_push_i_valid          = is_store && translation_done;
     assign sq_push_data_i.pc        = fuinput_i.pc;
     assign sq_push_data_i.id        = fuinput_i.id;
     assign sq_push_data_i.paddr     = address_phys;
-    assign sq_push_data_i.size      = size;
-    assign sq_push_data_i.data      = store_value;
+    // assign sq_push_data_i.size      = size;
+    // assign sq_push_data_i.data      = store_value;
+    assign sq_push_data_i.fmask     = store_wmask;
+    assign sq_push_data_i.fdata     = store_wdata;
     assign sq_push_data_i.valid     = 1'b1;
     assign sq_push_data_i.commited  = 1'b0;
     assign sq_push_data_i.completed = 1'b0;
@@ -146,39 +253,14 @@ module fu_lsu #() (
      * When a store is sent to cache, it is also removed
      * from the store queue
      */
-    // Mask store data for stores TODO: do thins at insertion !
-    xlen_t store_wdata;
-    logic[8-1:0] store_wmask;
-    logic [2:0] bo;
-    assign bo = sq_pop_entry_o.paddr[2:0];
-    always_comb begin
-        case (size)
-            SIZE_B: begin
-                store_wdata = {sq_pop_entry_o.data} << (8*bo);
-                store_wmask = 8'b0000_0001 << bo;
-            end
-            SIZE_H: begin
-                store_wdata = {sq_pop_entry_o.data} << (8*bo);
-                store_wmask = 8'b0000_0011 << bo;
-            end
-            SIZE_W: begin
-                store_wdata = {sq_pop_entry_o.data} << (8*bo);
-                store_wmask = 8'b0000_1111 << bo;
-            end
-            SIZE_D: begin
-                store_wdata = sq_pop_entry_o.data;
-                store_wmask = 8'hFF;
-            end
-        endcase
-    end
 
     assign complete_store = dcache_ports_io.wready &&
                             sq_pop_entry_o.valid &&
                             sq_pop_entry_o.commited;
     assign dcache_ports_io.waddr = sq_pop_entry_o.paddr;
-    assign dcache_ports_io.wsize = sq_pop_entry_o.size;
-    assign dcache_ports_io.wdata = store_wdata;
-    assign dcache_ports_io.wmask = store_wmask;
+    // assign dcache_ports_io.wsize = sq_pop_entry_o.size;
+    assign dcache_ports_io.wdata = sq_pop_entry_o.fdata;
+    assign dcache_ports_io.wmask = sq_pop_entry_o.fmask;
     assign dcache_ports_io.wvalid = complete_store;
     
     assign sq_pop_i = complete_store;
@@ -206,19 +288,35 @@ module fu_lsu #() (
 
     mshr_t mshr_array [NR_MSHR_ENTRIES];
 
-    // Fow now direct memory access stateless
-
+    // Lookup cache:  Fow now direct memory access stateless
     logic emmit_load_req;
     assign emmit_load_req = is_load && translation_done;
-    
     assign dcache_ports_io.load_a_addr = address_phys;
     assign dcache_ports_io.load_a_valid = emmit_load_req;
-    
+
+    // Lookup store queue
+    logic [XLEN/8-1:0] fw_mask;
+    xlen_t             fw_data;
+    logic stlf_fully_satisfied; // TODO handle 1 cycle load when bypass
+    forward_from_sq forward_from_sq(
+        .sq_i(sq),
+        .sq_issue_id_i(sq_issue_id_q),
+        .load_addr_i(address_phys),
+        .size_i(fuinput_i.size),
+        .valid_i(emmit_load_req),
+        .fw_mask_o(fw_mask),
+        .fw_data_o(fw_data),
+        .stlf_fully_satisfied_o(stlf_fully_satisfied)
+    );
+
     typedef struct packed {
         pc_t pc;
         id_t id;
         preg_id_t prd;
         mshr_wb_entry mshre;
+        // From sq
+        logic [XLEN/8-1:0] fw_mask;
+        xlen_t             fw_data;
     } wait_load_t;
 
     wait_load_t wait_load_d, wait_load_q;
@@ -228,42 +326,53 @@ module fu_lsu #() (
     assign wait_load_d.mshre.bo = address_phys[2:0];
     assign wait_load_d.mshre.size = fuinput_i.size;
     assign wait_load_d.mshre.sext = fuinput_i.op != LU;
+    assign wait_load_d.fw_mask = fw_mask;
+    assign wait_load_d.fw_data = fw_data;
 
     always_ff @(posedge clk) begin
         if(emmit_load_req) begin
             wait_load_q <= wait_load_d;
         end
     end
-    // Load extract + sign/zero extension
-    xlen_t load_data_raw, load_data;
-    xlen_t shifted;
-    logic [7:0]   b;
-    logic [15:0]  h;
-    logic [31:0]  w;
-    logic [63:0]  d;
-    assign load_data_raw = dcache_ports_io.load_d_data;
+
+    // Merge data from SQ and Cache
+    xlen_t load_data_merged;
     always_comb begin
-        shifted = load_data_raw >> (8*wait_load_q.mshre.bo);
-        b = shifted[7:0];
-        h = shifted[15:0];
-        w = shifted[31:0];
-        d = shifted[63:0];
+        for (int b = 0; b < XLEN/8; b++) begin
+            load_data_merged[8*b +: 8] = wait_load_q.fw_mask[b] ? 
+                    wait_load_q.fw_data[8*b +: 8] :
+                    dcache_ports_io.load_d_data[8*b +: 8];
+        end
+    end
+
+    // Load extract + sign/zero extension
+    xlen_t load_data_sext;
+    xlen_t shifted;
+    always_comb begin
+        shifted = load_data_merged >> (8*wait_load_q.mshre.bo);
         unique case (wait_load_q.mshre.size)
-            SIZE_B: load_data = wait_load_q.mshre.sext ? 
-                {{XLEN-8{b[7]}},  b} : {{XLEN-8{1'b0}}, b};
-            SIZE_H: load_data = wait_load_q.mshre.sext ?
-                {{XLEN-16{h[15]}}, h} : {{XLEN-16{1'b0}}, h};
-            SIZE_W: load_data = wait_load_q.mshre.sext ?
-                {{XLEN-32{w[31]}}, w} : {{XLEN-32{1'b0}}, w};
-            SIZE_D: load_data = d; // full 64-bit load
+            SIZE_B: load_data_sext = wait_load_q.mshre.sext ? 
+                {{XLEN-8{shifted[7]}},  shifted[7:0]} : {{XLEN-8{1'b0}}, shifted[7:0]};
+            SIZE_H: load_data_sext = wait_load_q.mshre.sext ?
+                {{XLEN-16{shifted[15]}}, shifted[15:0]} : {{XLEN-16{1'b0}}, shifted[15:0]};
+            SIZE_W: load_data_sext = wait_load_q.mshre.sext ?
+                {{XLEN-32{shifted[31]}}, shifted[31:0]} : {{XLEN-32{1'b0}}, shifted[31:0]};
+            SIZE_D: load_data_sext = shifted; // full 64-bit load
         endcase
     end
 
+    always_ff @(negedge clk) begin
+        if(dcache_ports_io.load_d_valid) begin
+            $display("LOAD COMPLETE PC:%x (sn=%x), D=%x, fw_mask=%x, fw_data=%x (merged:%x)",
+                 wait_load_q.pc, wait_load_q.id, load_data_sext,
+                    wait_load_q.fw_mask, wait_load_q.fw_data, load_data_merged);
+        end
+    end
     /* Output (only for LQ and AMO) */
     assign fuoutput_o.pc    = wait_load_q.pc;
     assign fuoutput_o.id    = wait_load_q.id;
     assign fuoutput_o.prd   = wait_load_q.prd;
-    assign fuoutput_o.rdval = load_data;
+    assign fuoutput_o.rdval = load_data_sext;
     assign fuoutput_o_valid = dcache_ports_io.load_d_valid;
 
     /* Fu ready: Both store and load must be ready now */
@@ -284,3 +393,10 @@ module fu_lsu #() (
     // @V0 != @V1 && @P0 != @P1 : Don't care
 
 endmodule
+
+
+
+
+
+
+
