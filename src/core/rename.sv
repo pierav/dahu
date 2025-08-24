@@ -21,37 +21,94 @@ module rename #() (
     preg_id_t rmt_reads[2];         // output
     logic     rmt_reads_valid[2];   // output
     preg_id_t rmt_write;            // input
-    areg_id_t rmt_write_id;         // input
-    logic rmt_write_valid;          // input
-
-    logic rmt_clear_i;
-    areg_id_t rmt_clear_id_i;
-    preg_id_t rmt_clear_preg_i;
+    areg_id_t rmt_write_areg;       // input
+    logic     rmt_write_valid;      // input
+    // OUTDATED
+    logic     rmt_clear_i;          // input Clear
+    areg_id_t rmt_clear_id_i;       // input Clear Areg
+    preg_id_t rmt_clear_preg_i;     // input Clear Preg
 
     // the internal rmt
-    preg_id_t rmt [ARFSIZE-1:0];
+    preg_id_t rmt [ARFSIZE];
+    id_t rmt_id [ARFSIZE];
     logic [ARFSIZE-1:0] rmt_valid;
-    // Read ports
+
+    // areg_id_t reverse_rmt[PRFSIZE];
+    // logic [PRFSIZE-1:0] reverse_rmt_valid;
+
+    // t0->r10->t0
+    // t1->r11->t1
+    // t2->r12->t2
+    // free r10 but still mapped to t0
+    // free r11 ...
+    // t4->r10-::->t0<=AR // We must invalidate t0->r10 // r10 must have committed
+    // t1->r11-::->t1<=AR// We also must invalidate t1->r11, but rewrite the same
+    // There is write precedence
+
+    // Asynchronous Read ports
     assign rmt_reads[0] = rmt[rmt_read_id[0]];
     assign rmt_reads[1] = rmt[rmt_read_id[1]];
     assign rmt_reads_valid[0] = rmt_valid[rmt_read_id[0]];
     assign rmt_reads_valid[1] = rmt_valid[rmt_read_id[1]];
+    areg_id_t old_areg;
+    preg_id_t old_preg;
     // write port
     always_ff @(posedge clk) begin
         if(!rstn) begin
             rmt_valid <= 0;
+            // No need to initialise reverse rmt
+            // reverse_rmt <= '0;
         end else begin
             if(rmt_write_valid) begin
-                rmt[rmt_write_id]       <= rmt_write;
-                rmt_valid[rmt_write_id] <= 1'b1;
-            end
-            if(rmt_clear_i) begin
-                // Clear only if we own the entry
-                if(rmt[rmt_clear_id_i] == rmt_clear_preg_i) begin
-                    rmt_valid[rmt_clear_id_i] <= 1'b0; 
+                // First invalidate old entry if needed
+                // old_areg <= reverse_rmt[rmt_write]; // Asynchronous read
+                // old_preg <= rmt[old_areg];
+                // TODO no broadcast
+                for(int i = 0; i < ARFSIZE; i++) begin
+                    areg_id_t areg = areg_id_t'(i);
+                    if (rmt[areg] == rmt_write) begin
+                        rmt_valid[areg] <= '0;
+                    end
                 end
+                // if (reverse_rmt_valid[old_preg]) begin
+                //     reverse_rmt_valid[old_preg] <= 0;
+                //     rmt_valid[old_areg] <= '0;
+                // end
+            
+                // Then update the entry or anothe with new mapping
+                rmt[rmt_write_areg]       <= rmt_write;
+                rmt_valid[rmt_write_areg] <= 1'b1;
+                rmt_id[rmt_write_areg]    <= di_i.id;
+                // Also update the reverse rmt
+                // reverse_rmt[rmt_write]  <= rmt_write_areg;
+                // reverse_rmt_valid[rmt_write] <= '1;
             end
         end
+    end
+    always_ff @(negedge clk) begin
+        $write("Rename RMT: [");
+        for (int i = 0; i < ARFSIZE; i++) begin
+            areg_id_t areg = areg_id_t'(i);
+            if (rmt_valid[i]) begin
+                $write("%s, ", dumpAPReg(areg, rmt[i], rmt_valid[i]));
+            end
+        end
+        $write("]");
+        if (rmt_write_valid) begin
+            $write(" (RMTW: %s<-%s)",
+                dumpAReg(rmt_write_areg),
+                dumpPReg(rmt_write, 1'b1));
+        end
+        $display("");
+        // $write("Rename Reverse RMT: [");
+        // for(int i = 0; i < PRFSIZE; i++) begin
+        //     preg_id_t preg = preg_id_t'(i);
+        //     $write("%s->%s, ",
+        //         dumpPReg(preg, reverse_rmt_valid[preg]),
+        //         dumpAReg(reverse_rmt[preg]));
+        // end
+        // $write("]");
+        // $display("");
     end
 
     /* Allocator (for now use a counter) */
@@ -110,11 +167,14 @@ module rename #() (
     assign rmt_clear_preg_i = free_preg_id_i;
     
     /* Rename -> Allocator */
-    assign allocate = di_i_valid && can_allocate && di_i.si.rd_valid;
+    assign allocate = di_i_valid &&
+                      di_o_ready && // Both R/V ok
+                      can_allocate &&
+                      di_i.si.rd_valid;
 
     /* Allocator -> RMT */
     assign rmt_write = allocated_preg;
-    assign rmt_write_id = di_i.si.rd;
+    assign rmt_write_areg = di_i.si.rd;
     assign rmt_write_valid = allocate;
 
     /* RMT <-> Rename */ // TODO care rs1 valid ?
@@ -138,7 +198,7 @@ module rename #() (
     assign di_i_ready = di_o_ready && !stall;
     assign di_o_valid = di_i_valid && !stall; // TODO clked
 
-
+   
     string cause;
     always_comb begin
         cause = "";
@@ -158,28 +218,16 @@ module rename #() (
         end else if (stall) begin
             $display("Rename: (port0) out of pregs");
         end else begin 
-            $display("Rename: (port0) %s: pc %x (sn=%x)%s%s%s",
+            $display("Rename: (port0) %s: pc %x (sn=%x) %s <- %s %s (allocate?%x)",
                 "SUCCESS  ",
                 di_o.si.pc, di_o.id,
                 di_o.si.rd_valid ?
-                    $sformatf(" rd:ar=%x:pr=%s",
-                        di_o.si.rd,
-                        $sformatf("%%%x", di_o.prs1)
-                    ) : " ",
+                    dumpAPReg(di_o.si.rd, di_o.prd, 1'b1) : " ",
                 di_o.si.rs1_valid ?
-                    $sformatf(" rs1:ar=%x:pr=%s",
-                        di_o.si.rs1,
-                        di_o.prs1_renammed ?
-                            $sformatf("%%%x", di_o.prs1) :
-                            "AR"
-                    ) : " ",
+                    dumpAPReg(di_o.si.rs1, di_o.prs1, di_o.prs1_renammed) : " ",
                 di_o.si.rs2_valid ?
-                    $sformatf(" rs2:ar=%x:pr=%s",
-                        di_o.si.rs2,
-                        di_o.prs2_renammed ?
-                            $sformatf("%%%x", di_o.prs2) :
-                            "AR"
-                    ) : " ",
+                    dumpAPReg(di_o.si.rs2, di_o.prs2, di_o.prs2_renammed) : " ",
+                allocate
             );
         end
     end

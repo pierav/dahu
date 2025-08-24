@@ -341,6 +341,65 @@ package C;
     } bp_t;
 
 
+    /********** A LOT OF DISLAYER *************/
+
+    // Integer register names (RV64)
+    localparam string IntRegNames [0:31] = '{
+        "zero", "ra",   "sp",  "gp",
+        "tp",   "t0",   "t1",  "t2",
+        "s0",   "s1",   "a0",  "a1",
+        "a2",   "a3",   "a4",  "a5",
+        "a6",   "a7",   "s2",  "s3",
+        "s4",   "s5",   "s6",  "s7",
+        "s8",   "s9",   "s10", "s11",
+        "t3",   "t4",   "t5",  "t6"
+    };
+
+    // Floating-point register names (RV64F/D)
+    localparam string FloatRegNames [0:31] = '{
+        "ft0", "ft1", "ft2",  "ft3",
+        "ft4", "ft5", "ft6",  "ft7",
+        "fs0", "fs1", "fa0",  "fa1",
+        "fa2", "fa3", "fa4",  "fa5",
+        "fa6", "fa7", "fs2",  "fs3",
+        "fs4", "fs5", "fs6",  "fs7",
+        "fs8", "fs9", "fs10", "fs11",
+        "ft8", "ft9", "ft10", "ft11"
+    };
+
+    function automatic string dumpAReg (input areg_id_t areg);
+        return IntRegNames[areg];
+    endfunction
+
+    function automatic string dumpPReg (
+        input preg_id_t   preg,    // physical register id
+        input bit         renamed  // 1 = show renamed mapping
+    );
+        string s;
+        if (renamed) begin
+            int color;
+            color = ((int'(preg) + 17) * 97) % 256;
+            // Build up the string
+            s = $sformatf("\033[38;5;%0dm", color);
+            s = { s, $sformatf(":%%%x", preg) };
+            s = { s, "\033[0m" };
+        end else begin
+            s = "AR";
+        end
+        return s;
+    endfunction 
+
+    function automatic string dumpAPReg (
+        input areg_id_t   areg,
+        input preg_id_t   preg,    // physical register id
+        input bit         renamed  // 1 = show renamed mapping
+    );
+        return $sformatf("%s:%s",
+                          dumpAReg(areg), 
+                          dumpPReg(preg, renamed));
+
+    endfunction
+
 endpackage
 
 interface csr_if #();

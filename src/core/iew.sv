@@ -273,15 +273,14 @@ module iew #() (
     end
     always_ff @(posedge clk) begin
         if(di_i_valid) begin
-            $display("Issue: (port0) %s: pc %x (sn=%x)%s%s fu:%x(%s) op:%x",
+            $display("Issue: (port0) %s: pc %x (sn=%x) %s <- %s%s fu:%x(%s) op:%x",
                 cause,
                 fuinput_o.pc, fuinput_o.id,
+                di_i.si.rd_valid ?
+                    dumpAPReg(di_i.si.rd, di_i.prd, 1'b1) : " ",
                 di_i.si.rs1_valid ?
-                    $sformatf(" rs1:ar=%x:pr=%s:val=%s%s",
-                        di_i.si.rs1,
-                        di_i.prs1_renammed ?
-                            $sformatf("%x", di_i.prs1) :
-                            "AR",
+                    $sformatf(" %s:%s %s",
+                        dumpAPReg(di_i.si.rs1, di_i.prs1, di_i.prs1_renammed),
                         rs1val_valid ?
                             $sformatf("%x",fuinput_o.rs1val) :
                             "RaW",
@@ -291,11 +290,8 @@ module iew #() (
                     ) : " ",
                 
                 di_i.si.rs2_valid ?
-                    $sformatf(" rs2:ar=%x:pr=%s:val=%s%s",
-                        di_i.si.rs2,
-                        di_i.prs2_renammed ?
-                             $sformatf("%x", di_i.prs2) :
-                             "AR",
+                    $sformatf(" %s:%s %s",
+                        dumpAPReg(di_i.si.rs2, di_i.prs2, di_i.prs2_renammed),
                         rs2val_valid ?
                             $sformatf("%x", fuinput_o.rs2val) :
                             "RaW",
@@ -499,11 +495,14 @@ module iew #() (
 
     always_ff @(posedge clk) begin
         if(rob_allocated[rob_retire_id_q]) begin
-            $display("Retire: (port0) %s: pc %x (sn=%x) rd:%d=%d (wb?%d) v:%d",
+            $display("Retire: (port0) %s: pc %x (sn=%x) %s",
                 rob_pop_data_o.completed ? "SUCCESS " : "FAILURE",
                 rob_pop_data_o.pc, rob_pop_data_o.id,
-                rob_pop_data_o.ard, rob_pop_data_o.prd,
-                rob_pop_data_o.needprf2arf, retire_rdval_q
+                rob_pop_data_o.needprf2arf ?
+                    $sformatf("Writeback : %s:%x",
+                        dumpAPReg(rob_pop_data_o.ard, rob_pop_data_o.prd, 1'b1),
+                        retire_rdval_q) :
+                    "Nothing to wb"
             );
         end else begin 
             $display("Retire: (port0) empty");

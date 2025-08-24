@@ -47,7 +47,7 @@ struct DynamicInst {
         os << " " << areg;
         if (renammed){
             os << "\033[38;5;" << std::dec
-               << ((preg+16) * 97) % 256 << 'm';
+               << ((preg+17) * 97) % 256 << 'm';
             os << ":%";
             os << std::setfill('%') << std::setw(3) << preg;
             os << "\x1B[0m";
