@@ -339,7 +339,8 @@ package C;
         logic needSQfree;
         // logic needBQfree;
         // logic needCSRfree;
-        logic completed; // WB performed
+        fu_t fu; // used to trigger the valid fu on commit
+        logic completed; // WB performed or completion
     } rob_entry_t;
 
 
@@ -469,6 +470,22 @@ interface bq_push_if #();
         output ready, bqid
     );
 endinterface
+
+
+interface bq_pop_if #();
+    bp_t bp;
+    logic missprediction;
+    logic pop;
+    modport bq (
+        output bp, missprediction,
+        input  pop
+    );
+    modport commit (
+        input  bp, missprediction,
+        output pop
+    );
+endinterface
+
 
 interface dcache_ports_if #();
     

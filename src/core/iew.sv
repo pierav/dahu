@@ -19,8 +19,10 @@ module iew #() (
     input completion_port_t completion_ports_i[NR_COMPL_PORTS],
     // To pipeline
     output rob_entry_t   retire_entry_o,
-    output logic         retire_entry_o_valid
-    
+    output logic         retire_entry_o_valid,
+
+    // To BQ
+    bq_pop_if.commit bq_pop_io
 );
     // TODO 0: Handle many write backs
     // TODO 1: Bancked PRF ?
@@ -399,14 +401,15 @@ module iew #() (
                                   rob_pop_data_o.completed;
 
     /* ROB: Insert in rob at issue for now */
-    assign rob_push_i_valid = fuinput_o_valid;
-    assign rob_push_data_i.id = di_i.id; 
-    assign rob_push_data_i.pc = di_i.si.pc;
-    assign rob_push_data_i.prd = di_i.prd;
-    assign rob_push_data_i.ard = di_i.si.rd;
+    assign rob_push_i_valid     = fuinput_o_valid;
+    assign rob_push_data_i.id   = di_i.id; 
+    assign rob_push_data_i.pc   = di_i.si.pc;
+    assign rob_push_data_i.prd  = di_i.prd;
+    assign rob_push_data_i.ard  = di_i.si.rd;
     assign rob_push_data_i.needprf2arf = di_i.si.rd_valid;
     assign rob_push_data_i.needSQfree = di_i.si.fu == FU_LSU &&
                                         di_i.si.op == S; // TODO AMO
+    assign rob_push_data_i.fu   = di_i.si.fu;
     // assign rob_push_data_i.needBQfree = di_i.si.fu == FU_CTRL;
     // assign rob_push_data_i.needCSRfree = di_i.si.fu == FU_CSR &&
     //     di_i.si.op inside { CSR_WRITE, CSR_SET, CSR_CLEAR };
@@ -511,11 +514,12 @@ module iew #() (
     end
 
     /* Commit stage */
-    rob_entry_t commit_entry_i;
-    logic       commit_entry_i_valid;
-    xlen_t      commit_retire_rdval_i;
-    logic       commit_entry_needarfw_i;
-    logic       commit_isrd_valid_i;
+    rob_entry_t commit_entry_i;         // The instruction to commit
+    logic       commit_entry_i_valid;   // Is there an instruction to commit
+    xlen_t      commit_retire_rdval_i;  // instruction rdVal
+    logic       commit_entry_needarfw_i;// Need a writeback ?
+    logic       commit_isrd_valid_i;    
+    // bq_pop_if.commit bq_pop_io
 
     assign commit_entry_i        = retire_entry_q;
     assign commit_entry_i_valid  = retire_entry_q_valid;
@@ -523,15 +527,26 @@ module iew #() (
     assign commit_entry_needarfw_i = commit_entry_i.needprf2arf;
     assign commit_isrd_valid_i  = commit_entry_i_valid &&
                                   commit_entry_needarfw_i;
-    /* Free register : in rename stage ? */
-    // logic     retire_free_prd_valid;
-    // preg_id_t retire_free_prd;
-    // assign retire_free_prd_valid = retire_isrd_valid;
-    // assign retire_free_prd       = retire_entry_q.prd;
-    /* Update the architecural state */
+    /* Update the architecural register file */
     assign arf_we[0]    = commit_isrd_valid_i;
     assign arf_waddr[0] = commit_entry_i.ard;
     assign arf_wdata[0] = commit_retire_rdval_i;
+    /* Branch logic */
+    logic is_branch;
+    assign is_branch = commit_entry_i.fu == FU_CTRL;
+    assign bq_pop_io.pop = commit_entry_i_valid && is_branch;
+    always_ff @(posedge clk) begin
+        if(commit_entry_i_valid && is_branch) begin
+            if (bq_pop_io.missprediction) begin
+                $error("Missprediction PC=%x (sn=%x) must jump to: %x (%x)",
+                    commit_entry_i.pc,
+                    commit_entry_i.id,
+                    bq_pop_io.bp.pcnext,
+                    bq_pop_io.bp.taken);
+            end
+        end
+    end
+
     always_ff @(posedge clk) begin
         if(commit_entry_i_valid) begin
             $display("Commit: (port0) %s: pc %x (sn=%x) rd:%x=%x (wb?%d) v:%x",

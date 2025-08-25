@@ -18,6 +18,7 @@ module fus #() (
     csr_if.master csr_io,
     // From/To BP
     bq_push_if.slave bq_push_io,
+    bq_pop_if.bq     bq_pop_io,
 
     // Caches
     dcache_ports_if dcache_ports_io
@@ -99,8 +100,7 @@ module fus #() (
         .fuinput_i_ready(fu_inputs_readys[FU_CTRL]),
         .branch_completion_o(branch_completion),
         .bq_push_io(bq_push_io),
-        .retire_entry_i(retire_entry_i),
-        .retire_entry_i_valid(retire_entry_i_valid)
+        .bq_pop_io(bq_pop_io)
     );
     // Nothing to write back
     assign fu_outputs_valids[FU_CTRL] = '0;

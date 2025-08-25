@@ -22,7 +22,7 @@ module core #() (
     logic fetch_o_valid;
     logic fetch_o_ready;
     bq_push_if #() bq_push_io();
-
+    bq_pop_if #() bq_pop_io();
 
     // Decode
     fetch_data_t decode_in_i; // Instruction to process
@@ -219,7 +219,8 @@ module core #() (
         .completion_ports_i(completion_ports),
         // To commit instruction
         .retire_entry_o(retire_entry),
-        .retire_entry_o_valid(retire_entry_valid)
+        .retire_entry_o_valid(retire_entry_valid),
+        .bq_pop_io(bq_pop_io)
     );
 
     /* Functionnals units */
@@ -236,6 +237,7 @@ module core #() (
         .retire_entry_i_valid(retire_entry_valid),
         .csr_io(csr_io),
         .bq_push_io(bq_push_io),
+        .bq_pop_io(bq_pop_io),
         .dcache_ports_io(dcache_ports_io)
     );
 

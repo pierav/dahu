@@ -54,10 +54,7 @@ module fu_branch #() (
 
     // From/To BP
     bq_push_if.slave bq_push_io,
-
-    // Core   
-    input rob_entry_t   retire_entry_i,
-    input logic         retire_entry_i_valid
+    bq_pop_if.bq     bq_pop_io
 ); 
 
     /* The branch Queue */
@@ -156,17 +153,6 @@ module fu_branch #() (
             $display("BQ[%x] <- target=%x(%d) missp=%d",
                 resolved_id_i, resolved_pc_i, resolved_taken_i, missprediction);
         end
-        if(commit_entry_pop) begin 
-            if (commit_entry_o.missprediction) begin
-                $error("Missprediction must jump to: %x (%x)",
-                    commit_entry_o.bp.pcnext,
-                    commit_entry_o.bp.taken);
-            end else begin
-                bq_entry_t e = commit_entry_o;
-                $display("NoMissprediction for pc=%x (sn=%x) target=%x(%d) missp=%d",
-                    e.pc, e.id, e.bp.pcnext, e.bp.taken, e.missprediction);
-            end
-        end
     end
 
     /* Branch alu */
@@ -210,10 +196,10 @@ module fu_branch #() (
     assign branch_completion_o.id    = fuinput_i.id;
     assign branch_completion_o.valid = fuinput_i_valid;
     /* Rob --> BQ */
-    // Pop when commit instruction is head of BQ
-    logic isBranch;
-    assign commit_entry_pop = retire_entry_i_valid &&
-                              !bq_empty && /* commit_entry_o valid */
-                              commit_entry_o.id == retire_entry_i.id;
+    // Pop when commit instruction is head of ROB
+    assign commit_entry_pop = bq_pop_io.pop;
+    /* BQ -> Commit */
+    assign bq_pop_io.bp             = commit_entry_o.bp;
+    assign bq_pop_io.missprediction = commit_entry_o.missprediction;
 
 endmodule
