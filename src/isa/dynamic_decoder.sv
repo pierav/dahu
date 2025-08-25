@@ -1,11 +1,10 @@
 import C::*;
 
-module dynamic_decoder #() (
+module dynamic_decoder_fault #() (
     input clk,
     input rstn,
 
     input si_t si_i,
-    input logic si_i_valid,
 
     /* Csr flags */
     input RV::xs_t fs_i,
@@ -15,26 +14,12 @@ module dynamic_decoder #() (
     input logic tw_i,
     input logic tsr_i,
     input logic debug_mode_i,
-  
-    output di_t di_o,
-    input logic di_o_ready
+    output logic is_fault_o
 );
-  id_t cpt;
+
   logic isfault;
-
-  assign di_o.si = si_i;
-  assign di_o.valid = 1'b0;
-  assign di_o.id = cpt;
-  assign di_o.fault = isfault;
-  
-  always_ff @(posedge clk) begin
-    if(si_i_valid && di_o_ready) begin
-      cpt <= cpt + 1;
-    end
-  end
-
   // Some check
-  always_comb begin : isfaultconb
+  always_comb begin : isfault_comb
     isfault = 0; // No fault by default
     /* SRET can only be executed in S and M mode */
     if(si_i.op == C::SRET && priv_lvl_i == RV::PRIV_LVL_U) isfault = 1;
@@ -56,5 +41,6 @@ module dynamic_decoder #() (
     /* FPU: check rounding mode */
     // TODO
   end
+  assign is_fault_o = isfault;
 
 endmodule

@@ -19,10 +19,10 @@ module fus #() (
     // From/To BP
     bq_push_if.slave bq_push_io,
     bq_pop_if.bq     bq_pop_io,
-
     // Caches
-    dcache_ports_if dcache_ports_io
-
+    dcache_ports_if  dcache_ports_io,
+    // Squash intf
+    squash_if.slave  squash_io
 );
 
     fu_input_t      fu_inputs[NB_FU];
@@ -72,7 +72,8 @@ module fus #() (
         .retire_entry_i(retire_entry_i),
         .retire_entry_i_valid(retire_entry_i_valid),
         .store_completion_o(store_completion),
-        .dcache_ports_io(dcache_ports_io)
+        .dcache_ports_io(dcache_ports_io),
+        .squash_io(squash_io)
     );
 
     /* MISC */
@@ -88,7 +89,8 @@ module fus #() (
         .completion_o_valid(fu_none_completion_o_valid),
         .retire_entry_i(retire_entry_i),
         .retire_entry_i_valid(retire_entry_i_valid),
-        .csr_io(csr_io)
+        .csr_io(csr_io),
+        .squash_io(squash_io)
     );
 
     /* Branch */
@@ -100,7 +102,8 @@ module fus #() (
         .fuinput_i_ready(fu_inputs_readys[FU_CTRL]),
         .branch_completion_o(branch_completion),
         .bq_push_io(bq_push_io),
-        .bq_pop_io(bq_pop_io)
+        .bq_pop_io(bq_pop_io),
+        .squash_io(squash_io)
     );
     // Nothing to write back
     assign fu_outputs_valids[FU_CTRL] = '0;
@@ -114,7 +117,8 @@ module fus #() (
         .fuinput_i_valid(fu_inputs_valids[FU_DIV]),
         .fuinput_i_ready(fu_inputs_readys[FU_DIV]),
         .fuoutput_o(fu_outputs[FU_DIV]),
-        .fuoutput_o_valid(fu_outputs_valids[FU_DIV])
+        .fuoutput_o_valid(fu_outputs_valids[FU_DIV]),
+        .squash_io(squash_io)
     );
 
     /* TODO IMPLEMENT */

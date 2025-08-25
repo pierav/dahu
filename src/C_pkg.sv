@@ -272,7 +272,7 @@ package C;
     } fetch_data_t;
 
     // unpacked to allow easy DPI
-    typedef struct {
+    typedef struct packed {
         logic [XLEN-1:0] pc;    // PC of the instruction
         logic [32-1:0]   tinst; // Assembly code
         fu_t             fu;    // functional unit to use
@@ -289,7 +289,7 @@ package C;
         logic            valid; // Not UNIMP
     } si_t; // StaticInst
 
-    typedef struct {
+    typedef struct packed {
         si_t si;
         logic[ID_BITS-1:0] id;
         logic fault;
@@ -483,6 +483,18 @@ interface bq_pop_if #();
     modport commit (
         input  bp, missprediction,
         output pop
+    );
+endinterface
+
+interface squash_if #();
+    logic valid; // Do squash 
+    id_t  id; // The ID from where to squash (Needed for flush at execute)
+    pc_t resolved_pc;    // Resolved pc 
+    modport master (
+        output valid, id, resolved_pc
+    );
+    modport slave (
+        input  valid, id, resolved_pc
     );
 endinterface
 

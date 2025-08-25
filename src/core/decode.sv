@@ -9,8 +9,10 @@ module decode #() (
     output di_t di_o,        // The renammed instruction 
     output logic di_o_valid, // The instruction is renammed
     input logic di_o_ready,   // The next stage is ready
-        // To BQ
-    bq_push_if.master bq_push_io
+    // To BQ
+    bq_push_if.master bq_push_io,
+    // Squash intf
+    squash_if.slave  squash_io
 
 );
     bp_t bp_i;
@@ -24,12 +26,11 @@ module decode #() (
         .si_o(decode_si)
     );
 
-    di_t decode_di;
-    dynamic_decoder ddecoder (
+    logic is_fault;
+    dynamic_decoder_fault ddecoder (
         .clk(clk),
         .rstn(rstn),
         .si_i(decode_si),
-        .si_i_valid(in_i_valid),
         .fs_i(RV::Initial),
         .priv_lvl_i(RV::PRIV_LVL_M),
         .frm_i(3'b0),
@@ -37,9 +38,26 @@ module decode #() (
         .tw_i(1'b0),
         .tsr_i(1'b0),
         .debug_mode_i(1'b0),
-        .di_o(decode_di),
-        .di_o_ready(di_o_ready) // TODO Stall allocation sq, lq
+        .is_fault_o(is_fault)
     );
+
+    // TODO Stall allocation sq, lq
+    id_t inst_id_q;
+    always_ff @(posedge clk) begin
+        if(!rstn) begin
+            inst_id_q <= '0;
+        end else begin
+            if (squash_io.valid) begin
+                // Reset to the expected id
+                inst_id_q <= squash_io.id + 1; 
+            end else begin
+                if(in_i_valid && di_o_ready) begin
+                    inst_id_q <= inst_id_q + 1;
+                end
+            end
+        end
+    end
+
 
     /* Direct branch resolution */
     logic isBranch, isDirectBranch, isIndirectBranch, isUncondBranch;
@@ -67,10 +85,11 @@ module decode #() (
 
     /* Output instruction to next stage */
     always_comb begin : output_process
-        di_o        = decode_di; // Base assignement
-        if (isBranch) begin
-            di_o.bqid   = bq_push_io.bqid;
-        end
+        di_o = '0; // base assignement 
+        di_o.si     = decode_si;
+        di_o.bqid   = isBranch ? bq_push_io.bqid : '0;
+        di_o.id     = inst_id_q;
+        di_o.fault  = is_fault;
     end
 
     // TODO BQ full
@@ -80,6 +99,20 @@ module decode #() (
     assign in_i_ready = di_o_ready; // Cannot stall
     assign di_o_valid = in_i_valid; // Cannot stall
 
+    always_ff @(posedge clk) begin
+        if(!di_o_ready) begin
+            $display("Decode: (port0) next stage not ready");
+        end else if(!in_i_valid) begin
+            $display("Decode: (port0) no valids inputs");
+        end else begin
+            $display("Decode: (port0) %s: pc %x (sn=%x) %s <- %s %s",
+                di_o_valid ?  "SUCCESS " : "FAILURE",
+                di_o.si.pc, di_o.id,
+                di_o.si.rs1_valid ? dumpAReg(di_o.si.rs1) : "",
+                di_o.si.rs2_valid ? dumpAReg(di_o.si.rs2) : "",
+                di_o.si.rd_valid ? dumpAReg(di_o.si.rd) : "");
+        end
+    end
 
     assert property (
         @(posedge clk) disable iff (!rstn)

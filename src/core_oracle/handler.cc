@@ -27,13 +27,32 @@ uint64_t cycle = 0;
 static DynamicInst inflight[MAX_INST_IDS];
 static FILE* tracef = nullptr;
 
+
+DynamicInst &getInstUnsafe(int id){
+    return inflight[id % MAX_INST_IDS];
+}
+
+
 DynamicInst &getInst(int id, uint64_t pc){
-    DynamicInst &inst = inflight[id % MAX_INST_IDS];
+    DynamicInst &inst = getInstUnsafe(id);
     assert(inst.pc == pc);
     assert(inst.si);
     return inst; 
 }
 
+
+void squashFrom(int id){
+    uint64_t idx = id;
+    while(1){
+        if(inflight[idx % MAX_INST_IDS].id >= id){
+            // clear ID
+            inflight[idx % MAX_INST_IDS].id = 0;
+        } else {
+            break; // Stop loop
+        }
+        idx++;
+    }
+}
 // // DynamicInst stub
 // struct rtl_si_t {
 //     uint64_t    pc;    // PC of the instruction
@@ -74,6 +93,7 @@ extern "C" void dpi_monitor_init() {
 // Decode event
 extern "C" void dpi_instr_decode(int id, uint64_t pc, uint32_t instr) {
     if(inflight[id % MAX_INST_IDS].id == id){ // Already inserted
+        DynamicInst &inst = getInst(id, pc); // Check valid PC
         return;
     }
     DynamicInst di = DynamicInst(id, pc, instr);
@@ -164,6 +184,12 @@ extern "C" void dpi_tick() {
     std::cout << "------------ cycle " 
               << cycle 
               << " -----------" << std::endl;
+}
+
+extern "C" void dpi_squash_from(int id) {
+    DynamicInst &inst = getInstUnsafe(id);
+    out << "SQUASH ON " << inst << std::endl;
+    squashFrom(id);
 }
 
 extern "C" const char* dpi_inst_get_dump(int id, uint64_t pc){

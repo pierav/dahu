@@ -104,7 +104,9 @@ module fu_lsu #() (
     // Store do not use the fu_output_t port
     output completion_port_t store_completion_o,
     // To dcache
-    dcache_ports_if dcache_ports_io
+    dcache_ports_if dcache_ports_io,
+    // Squash intf
+    squash_if.slave  squash_io
 ); 
 
     typedef struct packed {

@@ -23,6 +23,7 @@ module core #() (
     logic fetch_o_ready;
     bq_push_if #() bq_push_io();
     bq_pop_if #() bq_pop_io();
+    squash_if #() squash_io();
 
     // Decode
     fetch_data_t decode_in_i; // Instruction to process
@@ -131,25 +132,33 @@ module core #() (
             // dec2ren_di_q <= '0;
             // ren2issue_di_q <= '0;
         end else begin
-            if(decode_in_i_ready/* && fetch_o_valid*/) begin 
-                if2dec_q <= if2dec_d;
-                if2dec_valid_q <= if2dec_valid_d;
-            end
-            if(rename_di_i_ready/* && decode_di_o_valid*/) begin
-                dec2ren_di_q <= dec2ren_di_d;
-                dec2ren_di_valid_q <= dec2ren_di_valid_d;
-            end
-            if(issue_di_i_ready/* && rename_di_o_valid*/) begin
-                ren2issue_di_q <= ren2issue_di_d;
-                ren2issue_di_valid_q <= ren2issue_di_valid_d;
-            end
-            if(1) begin 
-                issue2execute_fuinput_q <= issue2execute_fuinput_d;
-                issue2execute_fuinput_valid_q <= issue2execute_fuinput_valid_d;
-            end
-            if(1) begin // Always ready
-                execute2wb_fuoutput_q <= execute2wb_fuoutput_d;
-                execute2wb_fuoutput_valid_q <= execute2wb_fuoutput_valid_d;
+            if(squash_io.valid) begin // Simply clear pipeline stages ?
+                if2dec_valid_q <= '0;
+                dec2ren_di_valid_q <= '0;
+                ren2issue_di_valid_q <= '0;
+                issue2execute_fuinput_valid_q <= '0;
+                execute2wb_fuoutput_valid_q <= '0;
+            end else begin
+                if(decode_in_i_ready/* && fetch_o_valid*/) begin 
+                    if2dec_q <= if2dec_d;
+                    if2dec_valid_q <= if2dec_valid_d;
+                end
+                if(rename_di_i_ready/* && decode_di_o_valid*/) begin
+                    dec2ren_di_q <= dec2ren_di_d;
+                    dec2ren_di_valid_q <= dec2ren_di_valid_d;
+                end
+                if(issue_di_i_ready/* && rename_di_o_valid*/) begin
+                    ren2issue_di_q <= ren2issue_di_d;
+                    ren2issue_di_valid_q <= ren2issue_di_valid_d;
+                end
+                if(1) begin 
+                    issue2execute_fuinput_q <= issue2execute_fuinput_d;
+                    issue2execute_fuinput_valid_q <= issue2execute_fuinput_valid_d;
+                end
+                if(1) begin // Always ready
+                    execute2wb_fuoutput_q <= execute2wb_fuoutput_d;
+                    execute2wb_fuoutput_valid_q <= execute2wb_fuoutput_valid_d;
+                end
             end
         end
     end
@@ -166,7 +175,8 @@ module core #() (
         .fetch_data_ready(fetch_data_ready),
         .fetch_o(fetch_o),
         .fetch_o_valid(fetch_o_valid),
-        .fetch_o_ready(fetch_o_ready)
+        .fetch_o_ready(fetch_o_ready),
+        .squash_io(squash_io)
     );
 
     /* Decode */
@@ -179,7 +189,8 @@ module core #() (
         .di_o(decode_di_o),             // The decoded instruction 
         .di_o_valid(decode_di_o_valid), // The instruction is decoded
         .di_o_ready(decode_di_o_ready), // The next stage is ready
-        .bq_push_io(bq_push_io)
+        .bq_push_io(bq_push_io),
+        .squash_io(squash_io)
     );
 
 
@@ -195,7 +206,8 @@ module core #() (
         .di_o_ready(rename_di_o_ready), // The next stage is ready
         // From commit
         .retire_entry_i(retire_entry),
-        .retire_entry_i_valid(retire_entry_valid)
+        .retire_entry_i_valid(retire_entry_valid),
+        .squash_io(squash_io)
     );
 
     /* Issue */   
@@ -220,7 +232,9 @@ module core #() (
         // To commit instruction
         .retire_entry_o(retire_entry),
         .retire_entry_o_valid(retire_entry_valid),
-        .bq_pop_io(bq_pop_io)
+        .bq_pop_io(bq_pop_io),
+        .squash_io(squash_io),
+        .squash_iom(squash_io)
     );
 
     /* Functionnals units */
@@ -238,7 +252,8 @@ module core #() (
         .csr_io(csr_io),
         .bq_push_io(bq_push_io),
         .bq_pop_io(bq_pop_io),
-        .dcache_ports_io(dcache_ports_io)
+        .dcache_ports_io(dcache_ports_io),
+        .squash_io(squash_io)
     );
 
     csr_file #() csr_file (
@@ -296,6 +311,11 @@ module core #() (
             handler_pkg::dpi_instr_commit(
                 32'(retire_entry.id),
                 retire_entry.pc
+            );
+        end
+        if(squash_io.valid) begin 
+            handler_pkg::dpi_squash_from(
+                32'(squash_io.id)
             );
         end
         handler_pkg::dpi_tick();

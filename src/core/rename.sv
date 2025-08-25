@@ -12,8 +12,9 @@ module rename #() (
     input logic di_o_ready,   // The next stage is ready
 
     input rob_entry_t retire_entry_i,
-    input logic retire_entry_i_valid
-
+    input logic retire_entry_i_valid,
+    // Squash intf
+    squash_if.slave  squash_io
 );
 
     /* Rename Map Table */ 
@@ -59,29 +60,33 @@ module rename #() (
             // No need to initialise reverse rmt
             // reverse_rmt <= '0;
         end else begin
-            if(rmt_write_valid) begin
-                // First invalidate old entry if needed
-                // old_areg <= reverse_rmt[rmt_write]; // Asynchronous read
-                // old_preg <= rmt[old_areg];
-                // TODO no broadcast
-                for(int i = 0; i < ARFSIZE; i++) begin
-                    areg_id_t areg = areg_id_t'(i);
-                    if (rmt[areg] == rmt_write) begin
-                        rmt_valid[areg] <= '0;
+            if(squash_io.valid) begin
+                rmt_valid <= 0; // Clear RMT
+            end else begin
+                if(rmt_write_valid) begin
+                    // First invalidate old entry if needed
+                    // old_areg <= reverse_rmt[rmt_write]; // Asynchronous read
+                    // old_preg <= rmt[old_areg];
+                    // TODO no broadcast
+                    for(int i = 0; i < ARFSIZE; i++) begin
+                        areg_id_t areg = areg_id_t'(i);
+                        if (rmt[areg] == rmt_write) begin
+                            rmt_valid[areg] <= '0;
+                        end
                     end
+                    // if (reverse_rmt_valid[old_preg]) begin
+                    //     reverse_rmt_valid[old_preg] <= 0;
+                    //     rmt_valid[old_areg] <= '0;
+                    // end
+                
+                    // Then update the entry or anothe with new mapping
+                    rmt[rmt_write_areg]       <= rmt_write;
+                    rmt_valid[rmt_write_areg] <= 1'b1;
+                    rmt_id[rmt_write_areg]    <= di_i.id;
+                    // Also update the reverse rmt
+                    // reverse_rmt[rmt_write]  <= rmt_write_areg;
+                    // reverse_rmt_valid[rmt_write] <= '1;
                 end
-                // if (reverse_rmt_valid[old_preg]) begin
-                //     reverse_rmt_valid[old_preg] <= 0;
-                //     rmt_valid[old_areg] <= '0;
-                // end
-            
-                // Then update the entry or anothe with new mapping
-                rmt[rmt_write_areg]       <= rmt_write;
-                rmt_valid[rmt_write_areg] <= 1'b1;
-                rmt_id[rmt_write_areg]    <= di_i.id;
-                // Also update the reverse rmt
-                // reverse_rmt[rmt_write]  <= rmt_write_areg;
-                // reverse_rmt_valid[rmt_write] <= '1;
             end
         end
     end
@@ -140,11 +145,16 @@ module rename #() (
     end
     always_ff @(posedge clk) begin
         if(!rstn) begin 
-            counter_q <= 0;
-            inflights_q <= 0;
+            counter_q <= '0;
+            inflights_q <= '0;
         end else begin
-            counter_q <= counter_d;
-            inflights_q <= inflights_d;
+            if(squash_io.valid) begin
+                counter_q <= '0; // Symply reset the allocator :)
+                inflights_q <= '0;
+            end else begin
+                counter_q <= counter_d;
+                inflights_q <= inflights_d;
+            end
         end
     end
 
@@ -195,7 +205,6 @@ module rename #() (
     /* Ready valid */
     assign di_i_ready = di_o_ready && !stall;
     assign di_o_valid = di_i_valid && !stall; // TODO clked
-
    
     string cause;
     always_comb begin

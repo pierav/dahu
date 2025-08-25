@@ -9,7 +9,9 @@ module bpred #()(
     input   pc_t pc,
     // To fetch 
     // Asynchronous 0 cycle latency prediction
-    output bp_t  prediction_0
+    output bp_t  prediction_0,
+    // Squash intf
+    squash_if.slave  squash_io
 );
     // TODO: BTB, IPRED, TAGE, RAS
     // Can we achieve high accuracy, 1 cycle latency ?

@@ -45,6 +45,10 @@ package handler_pkg;
         input longint unsigned pc
     );
 
+    import "DPI-C" context function void dpi_squash_from(
+        input int id
+    );
+
     // Dump callback
     import "DPI-C" context function string dpi_inst_get_dump(
         input int id,

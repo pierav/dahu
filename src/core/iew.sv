@@ -22,7 +22,10 @@ module iew #() (
     output logic         retire_entry_o_valid,
 
     // To BQ
-    bq_pop_if.commit bq_pop_io
+    bq_pop_if.commit bq_pop_io,
+    // Squash intf
+    squash_if.slave   squash_io, // let master and slave here for now
+    squash_if.master  squash_iom // ... even it's a bit weird
 );
     // TODO 0: Handle many write backs
     // TODO 1: Bancked PRF ?
@@ -118,10 +121,14 @@ module iew #() (
         end
     end
     always_ff @(posedge clk) begin
-        if(!rstn) begin
+        if (!rstn) begin
             sb_q <= '0;
         end else begin
-            sb_q <= sb_d;
+            if (squash_io.valid) begin
+                sb_q <= '0; // Symply reset the sb :)
+            end else begin
+                sb_q <= sb_d;
+            end
         end
     end
 
@@ -371,27 +378,34 @@ module iew #() (
             end
             rob_allocated <= '0;
         end else begin
-            // Issue ports
-            if(rob_push_i_valid) begin
-                assert (!rob_allocated[rob_issue_id_q]) else 
-                    $error("Overallocate rob entry");
-                rob[rob_issue_id_q] <= rob_push_data_i;
-                rob_allocated[rob_issue_id_q] <= 1'b1;
-                rob_issue_id_q <= rob_issue_id_d;
-            end
-            // Write Back ports
-            for (int i = 0; i < NR_COMPL_PORTS; i++) begin
-                if(rob_cmpl_id_i_valid[i]) begin
-                    rob[rob_cmpl_id_i[i]].completed <= '1;
+            if (squash_io.valid) begin
+                // Update pointers to the next expected instruction
+                rob_issue_id_q <= rob_id_t'(squash_io.id) + 1;
+                rob_retire_id_q <= rob_id_t'(squash_io.id) + 1;
+                rob_allocated <= '0;
+            end else begin
+                // Issue ports
+                if(rob_push_i_valid) begin
+                    assert (!rob_allocated[rob_issue_id_q]) else 
+                        $error("Overallocate rob entry");
+                    rob[rob_issue_id_q] <= rob_push_data_i;
+                    rob_allocated[rob_issue_id_q] <= 1'b1;
+                    rob_issue_id_q <= rob_issue_id_d;
                 end
-            end
-            if (rob_pop_i) begin
-                assert (rob_allocated[rob_retire_id_q]) else
-                    $error("Pop Unallocated entry");
-                assert (rob[rob_retire_id_q].completed) else 
-                    $error("Pop Uncompleted entry");
-                rob_allocated[rob_retire_id_q] <= 1'b0;
-                rob_retire_id_q <= rob_retire_id_d;
+                // Write Back ports
+                for (int i = 0; i < NR_COMPL_PORTS; i++) begin
+                    if(rob_cmpl_id_i_valid[i]) begin
+                        rob[rob_cmpl_id_i[i]].completed <= '1;
+                    end
+                end
+                if (rob_pop_i) begin
+                    assert (rob_allocated[rob_retire_id_q]) else
+                        $error("Pop Unallocated entry");
+                    assert (rob[rob_retire_id_q].completed) else 
+                        $error("Pop Uncompleted entry");
+                    rob_allocated[rob_retire_id_q] <= 1'b0;
+                    rob_retire_id_q <= rob_retire_id_d;
+                end
             end
         end
     end
@@ -487,9 +501,13 @@ module iew #() (
             retire_rdval_q <= '0;
             retire_entry_q_valid <= '0;
         end else begin 
-            retire_entry_q <= retire_entry_d;
-            retire_rdval_q <= retire_rdval_d;
-            retire_entry_q_valid <= retire_entry_d_valid;
+            if(squash_io.valid) begin
+                retire_entry_q_valid <= '0;
+            end else begin
+                retire_entry_q <= retire_entry_d;
+                retire_rdval_q <= retire_rdval_d;
+                retire_entry_q_valid <= retire_entry_d_valid;
+            end
         end
     end
 
@@ -535,17 +553,15 @@ module iew #() (
     logic is_branch;
     assign is_branch = commit_entry_i.fu == FU_CTRL;
     assign bq_pop_io.pop = commit_entry_i_valid && is_branch;
-    always_ff @(posedge clk) begin
-        if(commit_entry_i_valid && is_branch) begin
-            if (bq_pop_io.missprediction) begin
-                $error("Missprediction PC=%x (sn=%x) must jump to: %x (%x)",
-                    commit_entry_i.pc,
-                    commit_entry_i.id,
-                    bq_pop_io.bp.pcnext,
-                    bq_pop_io.bp.taken);
-            end
-        end
-    end
+    logic is_missprediction;
+    assign is_missprediction = commit_entry_i_valid &&
+                               is_branch &&
+                               bq_pop_io.missprediction;
+
+    /* Squash assignement */
+    assign squash_iom.valid         = is_missprediction;
+    assign squash_iom.id            = commit_entry_i.id;
+    assign squash_iom.resolved_pc   = bq_pop_io.bp.pcnext;
 
     always_ff @(posedge clk) begin
         if(commit_entry_i_valid) begin
@@ -555,13 +571,19 @@ module iew #() (
                 commit_entry_i.ard, commit_entry_i.prd,
                 commit_isrd_valid_i, commit_retire_rdval_i
             );
+            if(is_missprediction) begin
+            $display("Missprediction PC=%x (sn=%x) must jump to: %x (%x)",
+                commit_entry_i.pc,
+                commit_entry_i.id,
+                bq_pop_io.bp.pcnext,
+                bq_pop_io.bp.taken);
+            end
             $display("TRACE:", handler_pkg::dpi_inst_get_dump(
                 32'(commit_entry_i.id),  commit_entry_i.pc));
         end else begin 
             $display("Retire: (port0) empty");
         end
     end
-
 
 
 endmodule

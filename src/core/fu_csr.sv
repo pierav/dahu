@@ -11,7 +11,9 @@ module fu_csr #() (
     // Core   
     input rob_entry_t   retire_entry_i,
     input logic         retire_entry_i_valid,
-    csr_if.master csr_io
+    csr_if.master csr_io,
+    // Squash intf
+    squash_if.slave  squash_io
 );
 
     /* Retrieve inputs */
@@ -60,11 +62,15 @@ module fu_csr #() (
         if (!rstn) begin
             csrq[0].valid <= '0;
         end else begin
-            if(csrw.valid) begin
-                csrq[0] <= csrw;
-            end
-            if(csrq_pop) begin 
-                csrq[0].valid <= '0;
+            if (squash_io.valid) begin
+                csrq[0].valid <= '0; // Same as reset
+            end else begin 
+                if(csrw.valid) begin
+                    csrq[0] <= csrw;
+                end
+                if(csrq_pop) begin 
+                    csrq[0].valid <= '0;
+                end
             end
         end
     end

@@ -54,7 +54,9 @@ module fu_branch #() (
 
     // From/To BP
     bq_push_if.slave bq_push_io,
-    bq_pop_if.bq     bq_pop_io
+    bq_pop_if.bq     bq_pop_io,
+    // Squash intf
+    squash_if.slave  squash_io
 ); 
 
     /* The branch Queue */
@@ -105,31 +107,40 @@ module fu_branch #() (
             count_q <= 0;
             pred_id_q <= 0;
             commit_id_q <= 0;
-        end else begin            
-            if(bq_push_io.valid) begin // Push new entry InO
-                assert (!bq_full) else 
-                    $error("PUSH in full bq");
-                bq[pred_id_q].bp <= bq_push_io.bp;
-                bq[pred_id_q].pc <= bq_push_io.pc;
-                bq[pred_id_q].id <= bq_push_io.id;
-                pred_id_q        <= pred_id_q + 1;
+        end else begin
+            if (squash_io.valid) begin
+                // Reset all counter to 0
+                // Don't care of squash_io.id as the BQ entry index
+                // is allocated dynamically
+                count_q <= 0; 
+                pred_id_q <= 0;
+                commit_id_q <= 0;
+            end else begin
+                if(bq_push_io.valid) begin // Push new entry InO
+                    assert (!bq_full) else 
+                        $error("PUSH in full bq");
+                    bq[pred_id_q].bp <= bq_push_io.bp;
+                    bq[pred_id_q].pc <= bq_push_io.pc;
+                    bq[pred_id_q].id <= bq_push_io.id;
+                    pred_id_q        <= pred_id_q + 1;
+                end
+                if(resolved_pc_i_valid) begin // Update entry OoO
+                    bq[resolved_id_i].bp.pcnext <= resolved_pc_i;
+                    bq[resolved_id_i].bp.taken  <= resolved_taken_i;
+                    bq[resolved_id_i].missprediction <= missprediction;
+                end
+                if(commit_entry_pop) begin // Pop committed entry InO
+                    assert (!bq_empty) else
+                        $error("POP in empty bq");
+                    commit_id_q <= commit_id_q + 1;
+                end
+                // count_q single case assignement
+                case ({bq_push_io.valid, commit_entry_pop})
+                    2'b10: count_q <= count_q + 1;
+                    2'b01: count_q <= count_q - 1;
+                    default: count_q <= count_q;
+                endcase
             end
-            if(resolved_pc_i_valid) begin // Update entry OoO
-                bq[resolved_id_i].bp.pcnext <= resolved_pc_i;
-                bq[resolved_id_i].bp.taken  <= resolved_taken_i;
-                bq[resolved_id_i].missprediction <= missprediction;
-            end
-            if(commit_entry_pop) begin // Pop committed entry InO
-                assert (!bq_empty) else
-                    $error("POP in empty bq");
-                commit_id_q <= commit_id_q + 1;
-            end
-            // count_q single case assignement
-            case ({bq_push_io.valid, commit_entry_pop})
-                2'b10: count_q <= count_q + 1;
-                2'b01: count_q <= count_q - 1;
-                default: count_q <= count_q;
-            endcase
         end
     end
     always_comb begin
