@@ -13,14 +13,23 @@ struct checker_t {
         check_mem(inst);
     }
 
+    bool isBufferable(uint64_t paddr){
+        return paddr >= 0x80000000 && paddr < 0x90000000; // TODO
+    }
+
     void check_mem(DynamicInst* inst){
         uint64_t addr, rwdata;
         uint8_t size;
         // TODO: check bufferable (no io...)
+        
         if(inst->isLoad(addr, size, rwdata)){
-            mem_checker.check_load(addr, size, rwdata);
+            if(isBufferable(addr)){
+                mem_checker.check_load(addr, size, rwdata);
+            }
         } else if(inst->isStore(addr, size, rwdata)){
-            mem_checker.check_store(addr, size, rwdata);
+            if(isBufferable(addr)){
+                mem_checker.check_store(addr, size, rwdata);
+            }
         }
     }
 

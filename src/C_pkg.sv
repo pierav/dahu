@@ -365,6 +365,30 @@ package C;
     } sq_entry_t;
 
 
+
+    /* address ranges and attributes */
+    parameter int MEM_ADDR_WIDTH = 20;
+    parameter xlen_t RANGES_MEM_SIZE = 1 << MEM_ADDR_WIDTH;
+    parameter xlen_t RANGES_MEM_BASE = 64'h8000_0000;
+    parameter xlen_t RANGES_MEM_END = RANGES_MEM_BASE + RANGES_MEM_SIZE;
+
+    parameter int    UART_ADDR_WIDTH = 5;
+    parameter xlen_t RANGES_UART_BASE = 64'h1000_0000;
+    parameter xlen_t RANGES_UART_SIZE = 1 << UART_ADDR_WIDTH;
+    parameter xlen_t RANGES_UART_END = RANGES_UART_BASE + RANGES_UART_SIZE;
+
+
+    function automatic logic is_inrange(
+        xlen_t base, xlen_t size, xlen_t addr
+    );
+        return (addr >= base) && addr < (base + size);
+    endfunction
+
+    function automatic logic is_bufferable(xlen_t addr);
+        return is_inrange(RANGES_MEM_BASE, RANGES_MEM_SIZE, addr);
+    endfunction
+    
+
     /********** A LOT OF DISLAYER *************/
 
     // Integer register names (RV64)
