@@ -35,7 +35,7 @@ module branch_alu(
     pc_t adder_in, adder_out, adder_out_fix;
     assign adder_in = (op == JALR) ? rs1 : pc;
     assign adder_out = adder_in + imm;
-    assign adder_out_fix = (op == JALR) ? (adder_out & ~64'd1) : adder_out;
+    assign adder_out_fix = (op == JALR) ? (adder_out & ~pc_t'(1)) : adder_out;
 
     assign target_pc_o = adder_out_fix;
 

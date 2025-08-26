@@ -1,5 +1,6 @@
 import C::*;
 
+
 module decode #() (
     input clk,
     input rstn,
@@ -26,11 +27,109 @@ module decode #() (
         .si_o(decode_si)
     );
 
+    /* JAL uop decomposition */
+    /* It's mandatory to split jal and jalr because the branch unit 
+     * cannot wb instructions.
+     * Also, the branch unit do now own an adder to do PC + 4;
+     * So, it's simpler to split jal and jalr here in 2 uop:
+     * INPUT:
+     *      - jal[r] rd, [imm|rs1]
+     * OUTPUT:
+     *      1) auipc rd, 4
+     *      2) j[r] rd, [imm|rs1]
+     */
+    si_t uop_extra_q, conv_uop_0;
+    logic uop_extra_valid_q, uop_extra_valid_d;
+    assign conv_uop_0.pc       = decode_si.pc;
+    assign conv_uop_0.tinst    = 32'h00004097; // auipc ra, 4 :) (A bit hacky...)
+    // TODO: only ra ?
+    assign conv_uop_0.fu       = FU_ALU;
+    assign conv_uop_0.op       = AUIPC;
+    assign conv_uop_0.rs1      = '0;
+    assign conv_uop_0.rs1_valid= '0;
+    assign conv_uop_0.rs2      = '0;
+    assign conv_uop_0.rs2_valid= '0;
+    assign conv_uop_0.rd       =  decode_si.rd;
+    assign conv_uop_0.rd_valid = '1; // Otherwise, why create uop...
+    assign conv_uop_0.imm      =  4; // Do PC + 4 :)
+    assign conv_uop_0.use_uimm = '0;
+    assign conv_uop_0.size     = SIZE_D;
+    assign conv_uop_0.valid    = '1;
+
+    logic is_jal_or_jalr;
+    logic is_trig_uop_jal;
+    assign is_jal_or_jalr = decode_si.fu == FU_CTRL &&
+                            decode_si.op inside { JAL, JALR };
+    assign is_trig_uop_jal = in_i_valid &&
+                             is_jal_or_jalr && 
+                             decode_si.rd_valid; // Avoid useless uop for x0 W
+    // TODO back to back jal ?
+
+    /* Arbitration between uop and decoded op */
+    // FETCH || DEC  || RE
+    //==========================
+    //  JAL  ||      ||
+    //  ADDI || UOP  || 
+    //    O  || JAL  || UOP
+    //       || ADDI || JAL
+    //       ||      || ADDI
+
+    logic push_uop;
+    assign push_uop = di_o_ready && is_trig_uop_jal;
+    // backup the generated uops
+    always_ff @(posedge clk) begin
+        if(!rstn) begin
+            uop_extra_q <= '0;
+            uop_extra_valid_q <= '0;
+        end else begin
+            if (squash_io.valid) begin
+                uop_extra_q <= '0;
+                uop_extra_valid_q <= '0;
+            end else begin
+                if(push_uop) begin
+                    uop_extra_q <= decode_si; // Do the jalr after the auipc
+                end
+                uop_extra_valid_q <= push_uop;
+            end
+        end
+    end
+
+    // uop selection 
+    si_t uop_si;
+    logic uop_si_valid;
+    RV::jtype_t tinst;
+    always_comb begin
+        tinst = '0;
+        if (uop_extra_valid_q) begin // conv 1 uop (PRIORITARY over uop0)
+            uop_si          = uop_extra_q;
+            // Do not handle RD here (no need to rename and wb here)
+            // This wb is alreayd done in conv 0
+            uop_si.rd_valid = '0;
+            uop_si.rd       = '0; // x0 
+            uop_si_valid    = '1;
+            tinst = uop_extra_q.tinst; // for the dpi tracer: create fake inst
+            tinst.rd = '0; // x0
+            uop_si.tinst = tinst;
+        end else if (push_uop) begin // When detected use conv 0 uop
+            uop_si          = conv_uop_0;
+            uop_si_valid    = '1;
+        end else begin // Otherwise use input
+            uop_si          = decode_si;
+            uop_si_valid    = in_i_valid;
+        end
+    end
+
+    // We have to stall 1 cycle the previous stage.
+    // Insert the bubble as late as possible ? 
+    // In this way the pipe buffer will be filler ?
+    assign in_i_ready = di_o_ready && !uop_extra_valid_q; // D or Q ?
+
+
     logic is_fault;
     dynamic_decoder_fault ddecoder (
         .clk(clk),
         .rstn(rstn),
-        .si_i(decode_si),
+        .si_i(uop_si),
         .fs_i(RV::Initial),
         .priv_lvl_i(RV::PRIV_LVL_M),
         .frm_i(3'b0),
@@ -40,6 +139,7 @@ module decode #() (
         .debug_mode_i(1'b0),
         .is_fault_o(is_fault)
     );
+
 
     // TODO Stall allocation sq, lq
     id_t inst_id_q;
@@ -51,25 +151,24 @@ module decode #() (
                 // Reset to the expected id
                 inst_id_q <= squash_io.id + 1; 
             end else begin
-                if(in_i_valid && di_o_ready) begin
+                if(uop_si_valid && di_o_ready) begin
                     inst_id_q <= inst_id_q + 1;
                 end
             end
         end
     end
 
-
     /* Direct branch resolution */
     logic isBranch, isDirectBranch, isIndirectBranch, isUncondBranch;
-    assign isBranch = decode_si.fu == FU_CTRL;
+    assign isBranch = uop_si.fu == FU_CTRL;
     assign isDirectBranch = isBranch &&
-        decode_si.op inside { BLT, BLTU, BGE, BGEU, BEQ, BNE, JAL };
+        uop_si.op inside { BLT, BLTU, BGE, BGEU, BEQ, BNE, JAL };
     assign isIndirectBranch = isBranch &&
-        decode_si.op inside { JALR };
+        uop_si.op inside { JALR };
 
     /* Direct Branch computation */
     pc_t direct_branch_target;
-    assign direct_branch_target = in_i.pc + decode_si.imm; // J or B imm ?
+    assign direct_branch_target = in_i.pc + uop_si.imm; // J or B imm ?
 
     logic misspredict_direct;
     assign misspredict_direct = isDirectBranch &&
@@ -81,23 +180,22 @@ module decode #() (
     assign bq_push_io.bp = bp_i;
     assign bq_push_io.pc = di_o.si.pc;
     assign bq_push_io.id = di_o.id;
-    assign bq_push_io.valid = isBranch && in_i_valid && di_o_ready; // Push only one time
+    assign bq_push_io.valid = isBranch && uop_si_valid && di_o_ready; // Push only one time
 
     /* Output instruction to next stage */
     always_comb begin : output_process
         di_o = '0; // base assignement 
-        di_o.si     = decode_si;
+        di_o.si     = uop_si;
         di_o.bqid   = isBranch ? bq_push_io.bqid : '0;
         di_o.id     = inst_id_q;
         di_o.fault  = is_fault;
     end
+    assign di_o_valid = uop_si_valid; // Cannot stall
 
     // TODO BQ full
     // logic stall;
     // assign stall = 
     /* Ready valid */
-    assign in_i_ready = di_o_ready; // Cannot stall
-    assign di_o_valid = in_i_valid; // Cannot stall
 
     always_ff @(posedge clk) begin
         if(!di_o_ready) begin
@@ -105,12 +203,15 @@ module decode #() (
         end else if(!in_i_valid) begin
             $display("Decode: (port0) no valids inputs");
         end else begin
-            $display("Decode: (port0) %s: pc %x (sn=%x) %s <- %s %s",
+            $display("Decode: (port0) %s: pc %x (sn=%x) %s <- %s %s | imm=%x (%s%s)",
                 di_o_valid ?  "SUCCESS " : "FAILURE",
                 di_o.si.pc, di_o.id,
                 di_o.si.rs1_valid ? dumpAReg(di_o.si.rs1) : "",
                 di_o.si.rs2_valid ? dumpAReg(di_o.si.rs2) : "",
-                di_o.si.rd_valid ? dumpAReg(di_o.si.rd) : "");
+                di_o.si.rd_valid ? dumpAReg(di_o.si.rd) : "",
+                di_o.si.imm,
+                push_uop ? "Use UOP0" : "",
+                uop_extra_valid_q ? "Use UOP1": "");
         end
     end
 
