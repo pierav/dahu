@@ -14,7 +14,8 @@ package C;
     parameter int NR_COMMIT_PORTS = 1;
     parameter int NR_ISSUE_PRF_READ_PORTS = NR_ISSUE_PORTS * 2; // TODO FMA
     // Number of inflight instructions related
-    parameter int ID_BITS = 10; // TDB accordingly with max inflights
+    parameter int ID_BITS = 20; // TDB accordingly with max inflights
+    // TODO adjust to max inflights ?
     parameter int NR_SQ_ENTRIES = 16;
     parameter int NR_ROB_ENTRIES = 32;
     parameter int NR_BQ_ENTRIES = 16; // Branch Queue entries

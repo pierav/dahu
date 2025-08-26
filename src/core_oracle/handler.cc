@@ -14,45 +14,74 @@
 #include "core_oracle/dyninst.hh"
 #include "core_oracle/checker.hh"
 
-
-checker_t checker;
-
-
-
-#define MAX_INST_IDS 65536
+#define NB_ID_BITS 20
+#define MAX_INST_IDS (1 << NB_ID_BITS)
 #define LOGFILE "trace.log"
 
+checker_t checker;
 uint64_t cycle = 0;
 
 static DynamicInst inflight[MAX_INST_IDS];
-static FILE* tracef = nullptr;
+uint64_t push_cpt = 0, pop_cpt = 0;
+uint64_t cnt = 0;
 
+static FILE* tracef = nullptr;
 
 DynamicInst &getInstUnsafe(int id){
     return inflight[id % MAX_INST_IDS];
 }
 
-
 DynamicInst &getInst(int id, uint64_t pc){
     DynamicInst &inst = getInstUnsafe(id);
+    // std::cerr << "get inst at id=" 
+    //           << std::hex << id << " pc=" << pc << " : "
+    //           << inst << std::endl;
+    if(inst.pc != pc) {
+        fprintf(stderr, "Invalid PC %lx : extected %s", pc, inst.str());
+    }
     assert(inst.pc == pc);
     assert(inst.si);
     return inst; 
 }
 
-
-void squashFrom(int id){
-    uint64_t idx = id;
-    while(1){
-        if(inflight[idx % MAX_INST_IDS].id >= id){
-            // clear ID
-            inflight[idx % MAX_INST_IDS].id = 0;
-        } else {
-            break; // Stop loop
-        }
-        idx++;
-    }
+DynamicInst &insertInst(int id, DynamicInst &inst){
+    // std::cerr << "insertInst : id="  << std::hex << id << " : "
+    //           << inst << std::endl;
+    assert(cnt < 65536);
+    assert(push_cpt % MAX_INST_IDS == id % MAX_INST_IDS);
+    push_cpt ++;
+    cnt ++;
+    inflight[id % MAX_INST_IDS] = inst;
+    return inflight[id % MAX_INST_IDS];
 }
+
+void squashFrom(DynamicInst &inst){
+    // std::cerr << "SQUASH FROM " << inst << std::endl;
+    uint64_t idx = inst.id;
+    // Flush at commit only for now
+    assert(idx % MAX_INST_IDS == pop_cpt % MAX_INST_IDS);
+    // Move push cpt and update accordingly the count 
+    push_cpt -= cnt -1;  // Clear all inflights (exclude ourserlf)
+    cnt = 1;
+    // while(1){
+    //     if(inflight[idx % MAX_INST_IDS].id > id){ // TODO invalid care %N!!
+            
+    //         inflight_valid[idx % MAX_INST_IDS] = false;
+    //     } else {
+    //         break; // Stop loop
+    //     }
+    //     idx++;
+    // }
+}
+
+void commitInst(DynamicInst &inst){
+    // std::cerr << "Commit " << inst << std::endl;
+    // Must commit the last
+    assert(inst.id % MAX_INST_IDS == pop_cpt % MAX_INST_IDS);
+    pop_cpt += 1;
+    cnt -= 1;
+}
+
 // // DynamicInst stub
 // struct rtl_si_t {
 //     uint64_t    pc;    // PC of the instruction
@@ -91,17 +120,18 @@ extern "C" void dpi_monitor_init() {
 }
 
 // Decode event
-extern "C" void dpi_instr_decode(int id, uint64_t pc, uint32_t instr) {
-    if(inflight[id % MAX_INST_IDS].id == id){ // Already inserted
-        DynamicInst &inst = getInst(id, pc); // Check valid PC
-        return;
-    }
-    DynamicInst di = DynamicInst(id, pc, instr);
-    inflight[id] = di;
+extern "C" void dpi_instr_decode(
+    int id,
+    uint64_t pc,
+    uint32_t instr
+){
+    DynamicInst _inst = DynamicInst(id, pc, instr);
+    DynamicInst &inst = insertInst(id, _inst);
+
     if(LOG_ALL){
-        out << "Decod:" << di << std::endl;
+        out << "Decod:" << inst << std::endl;
     }
-    if(!di.si->isInst()){
+    if(!inst.si->isInst()){
         out << "Not a valid inst\n";
         exit(1);
     }
@@ -167,7 +197,7 @@ extern "C" void dpi_instr_writeback(
     }
 }
 
-// Commit event
+// Commit event 
 extern "C" void dpi_instr_commit(int id, uint64_t pc) {
     DynamicInst &inst = getInst(id, pc);
     // out << std::setw(16) << std::setfill('0') << std::right << std::dec
@@ -176,6 +206,7 @@ extern "C" void dpi_instr_commit(int id, uint64_t pc) {
     out << "DPI-Commit: "
         << inst << std::endl;
     checker.on_commit(&inst);
+    commitInst(inst);
 }
 
 // Handle time locally
@@ -188,8 +219,7 @@ extern "C" void dpi_tick() {
 
 extern "C" void dpi_squash_from(int id) {
     DynamicInst &inst = getInstUnsafe(id);
-    out << "SQUASH ON " << inst << std::endl;
-    squashFrom(id);
+    squashFrom(inst);
 }
 
 extern "C" const char* dpi_inst_get_dump(int id, uint64_t pc){

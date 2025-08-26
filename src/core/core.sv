@@ -139,7 +139,7 @@ module core #() (
                 issue2execute_fuinput_valid_q <= '0;
                 execute2wb_fuoutput_valid_q <= '0;
             end else begin
-                if(decode_in_i_ready/* && fetch_o_valid*/) begin 
+                if(decode_in_i_ready/* && fetch_o_valid*/) begin
                     if2dec_q <= if2dec_d;
                     if2dec_valid_q <= if2dec_valid_d;
                 end
@@ -268,16 +268,13 @@ module core #() (
     /* DPI tracer (at pipeline stage) */
     /* Use negedge to display after everything is computed */
     always_ff @(negedge clk) begin
-        if(dec2ren_di_valid_q) begin
+        // Read ff input : must tick only one time
+        if(dec2ren_di_valid_d && decode_di_o_ready) begin
             // First check oracle
             handler_pkg::dpi_instr_decode(
-                32'(dec2ren_di_q.id),
-                dec2ren_di_q.si.pc,
-                dec2ren_di_q.si.tinst);
-            // Then check HW decoder
-            if(!dec2ren_di_q.si.valid) begin
-                $error("invalid inst m!", dec2ren_di_q.si.tinst);
-            end
+                32'(dec2ren_di_d.id),
+                dec2ren_di_d.si.pc,
+                dec2ren_di_d.si.tinst);
         end
         if(ren2issue_di_valid_q) begin
             handler_pkg::dpi_instr_renamed(
@@ -307,17 +304,19 @@ module core #() (
                 );
             end
         end
+        // SQUASH BEFORE COMMIT (mandatory for the dpi tracer)
+        if(squash_io.valid) begin 
+            handler_pkg::dpi_squash_from(
+                32'(squash_io.id)
+            );
+        end
         if(retire_entry_valid) begin
             handler_pkg::dpi_instr_commit(
                 32'(retire_entry.id),
                 retire_entry.pc
             );
         end
-        if(squash_io.valid) begin 
-            handler_pkg::dpi_squash_from(
-                32'(squash_io.id)
-            );
-        end
+        
         handler_pkg::dpi_tick();
     end
  
