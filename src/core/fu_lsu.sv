@@ -114,6 +114,7 @@ module fu_lsu #() (
     } req_flags_t;
 
     sq_entry_t [NR_SQ_ENTRIES-1:0] sq;
+    sq_entry_t [NR_SQ_ENTRIES-1:0] sq_d;
 
     // SQ Inputs
     logic       sq_push_i_valid; // Input
@@ -129,44 +130,80 @@ module fu_lsu #() (
 
     // SQ pointers
     sq_id_t     sq_issue_id_q, sq_issue_id_d;
-    assign      sq_issue_id_d = sq_issue_id_q + 1;
     sq_id_t     sq_commit_id_q, sq_commit_id_d;    
-    assign      sq_commit_id_d = sq_commit_id_q + 1;
     sq_id_t     sq_pop_id_q,  sq_pop_id_d;    
-    assign      sq_pop_id_d = sq_pop_id_q + 1;
-    // Write ports
-    always_ff @(posedge clk) begin : write_ports
-        if(!rstn) begin
-            sq_issue_id_q <= '0;
-            sq_commit_id_q <= '0;
-            sq_pop_id_q <= '0;
-            for (int i = 0; i < NR_SQ_ENTRIES; i++) begin
-                sq[i].valid <= '0;
-                sq[i].commited <= '0;
-                sq[i].completed <= '0;
+    sq_id_t     valid_no_commit_cnt; // OK To overflow
+    always_comb begin
+        // Default assignement
+        sq_d = sq;
+        sq_commit_id_d = sq_commit_id_q;
+        sq_pop_id_d = sq_pop_id_q;
+        sq_issue_id_d = sq_issue_id_q;
+        /* First commit insts */
+        if (sq_commit_i_valid) begin
+            sq_d[sq_commit_id_q].commited = '1;
+            sq_commit_id_d = sq_commit_id_q + 1;
+        end
+
+        // 1 pop port
+        if (sq_pop_i) begin
+            sq_d[sq_pop_id_q].valid     = '0;
+            sq_d[sq_pop_id_q].commited  = '0;
+            sq_pop_id_d = sq_pop_id_q + 1;
+        end
+
+        valid_no_commit_cnt = 0;
+        for (int i = 0; i < NR_SQ_ENTRIES; i++) begin
+            valid_no_commit_cnt += sq_id_t'(sq[i].valid && !sq[i].commited);
+        end
+        /* After update non speculative perform squash if needed */
+        if (squash_io.valid) begin
+            sq_issue_id_d -= valid_no_commit_cnt; // modulo wrap if needed
+            for(int i = 0; i < NR_SQ_ENTRIES; i++) begin
+                if(sq[i].valid && !sq[i].commited) begin
+                    sq_d[i].valid = '0;
+                end
             end
         end else begin
-            // 1 write port
+            // Try to issue inst if no flush
             if (sq_push_i_valid) begin
-                sq[sq_issue_id_q] <= sq_push_data_i;
-                sq_issue_id_q <= sq_issue_id_d;
-            end
-            // 1 commit port
-            if (sq_commit_i_valid) begin
-                sq[sq_commit_id_q].commited <= '1;
-                sq_commit_id_q <= sq_commit_id_d;
-            end
-            // 1 pop port
-            if (sq_pop_i) begin
-                sq[sq_pop_id_q].valid <= '0;
-                sq[sq_pop_id_q].commited <= '0;
-                sq_pop_id_q <= sq_pop_id_d;
+                sq_d[sq_issue_id_q] = sq_push_data_i;
+                sq_issue_id_d       = sq_issue_id_q + sq_id_t'(1);
             end
         end
     end
-    // Read ports
+    
+    always_ff @(posedge clk) begin : write_ports
+        if (!rstn) begin
+            sq_issue_id_q   <= '0;
+            sq_commit_id_q  <= '0;
+            sq_pop_id_q     <= '0;
+            for (int i = 0; i < NR_SQ_ENTRIES; i++) begin
+                sq[i].valid     <= '0;
+                sq[i].commited  <= '0;
+                sq[i].completed <= '0;
+            end
+        end else begin
+            sq              <= sq_d;
+            sq_issue_id_q   <= sq_issue_id_d;
+            sq_commit_id_q  <= sq_commit_id_d;
+            sq_pop_id_q     <= sq_pop_id_d;
+        end
+    end
+    always_ff @(negedge clk) begin
+        $display("SQ issueptr=%x commitptr=%x popptr=%x",
+            sq_issue_id_q, sq_commit_id_q, sq_pop_id_q);
+        for(int i = 0; i < NR_SQ_ENTRIES; i++) begin
+            sq_id_t idx = sq_pop_id_q + sq_id_t'(i);
+            if(sq[idx].valid) begin
+                $display("SQ[%x]: %s", idx, dump_sq_entry(sq[idx]));
+            end
+        end
+    end
+
+    // aynchronous Read ports
     assign sq_pop_entry_o = sq[sq_pop_id_q];
-    assign sq_push_i_ready = !sq[sq_issue_id_q].valid; // TODO cpy ?
+    assign sq_push_i_ready = !sq[sq_issue_id_q].valid; // TODO cpt !
 
     typedef struct packed {
         fu_output_t result;
@@ -332,7 +369,7 @@ module fu_lsu #() (
     assign wait_load_d.fw_data = fw_data;
 
     always_ff @(posedge clk) begin
-        if(emmit_load_req) begin
+        if(emmit_load_req) begin // No need to reset or flush
             wait_load_q <= wait_load_d;
         end
     end

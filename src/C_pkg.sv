@@ -345,8 +345,6 @@ package C;
     } rob_entry_t;
 
 
-
-    
     typedef struct packed {
         id_t id;            // Debug only ?
         xlen_t pc;          // Debug only ?
@@ -363,6 +361,14 @@ package C;
         logic commited;     // Entry used
         logic completed;
     } sq_entry_t;
+
+    function automatic string dump_sq_entry (
+        input sq_entry_t sqe
+    );
+        return $sformatf("PC: %x (sn=%x) P@:%x fmask:%x fdata:%x [commited:%d]",
+                         sqe.pc, sqe.id, sqe.paddr, sqe.fmask, sqe.fdata,
+                         sqe.commited);
+    endfunction
 
 
 
