@@ -15,6 +15,8 @@
 #include <cstdint>
 #include <cstring>
 
+#include "cosim/spike_harness.hh"
+
 #define MYISA "rv64imafd"
 #define RAM_BASE DRAM_BASE
 #define RAM_SIZE (1 << 20)
@@ -67,85 +69,96 @@ struct dummy_simif_t : public simif_t {
     }
 };
 
-int main(int argc, char** argv) {
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " program.bin" << std::endl;
-        return 1;
-    }
+
+spike_harness_t::spike_harness_t(char *binfile) {
+    simif = new dummy_simif_t();
 
     // load binary file
-    std::ifstream bin(argv[1], std::ios::binary | std::ios::ate);
-    if (!bin) { std::cerr << "cannot open " << argv[1] << std::endl; return 1; }
+    std::ifstream bin(binfile, std::ios::binary | std::ios::ate);
+    if (!bin) {
+        std::cerr << "cannot open " << binfile << std::endl;
+    }
     size_t size = bin.tellg();
     bin.seekg(0);
     std::vector<char> buf(size);
     bin.read(buf.data(), size);
     const uint8_t* binptr = reinterpret_cast<const uint8_t*>(buf.data());
     
-    std::cout << "Initialize mem with bin " << argv[1] << std::endl;
+    std::cout << "Initialize mem with bin " << binfile << std::endl;
     
-    // Create IO handler
-    dummy_simif_t simif;
-
     // Write program in memory
-    simif.mmio_store(RAM_BASE, size, binptr);
+    simif->mmio_store(RAM_BASE, size, binptr);
 
     // Create processor
-    processor_t proc("RV64IM", "MSU", &simif.cfg, &simif, 0, false, nullptr, std::cout);
+    proc = new processor_t("RV64IM", "MSU",
+        &simif->cfg, simif, 0, false, nullptr, std::cout);
 
     std::cout << "Initialise proc PC to" << RAM_BASE << std::endl;
     // Set PC to start of binary
-    proc.get_state()->pc = RAM_BASE;
-
+    proc->get_state()->pc = RAM_BASE;
 
     isa_parser_t isa_parser(MYISA, DEFAULT_PRIV);
-    disassembler_t* disassembler = new disassembler_t(&isa_parser);
+    disassembler = new disassembler_t(&isa_parser);
+}
+
+std::string spike_harness_t::step1(){
+    auto* st = proc->get_state();
+    reg_t pc = st->pc;
+
+    // Fetch 32-bit instruction from memory
+    uint32_t insn_bits = 0;
+    if (!simif->mmio_load(pc, sizeof(insn_bits), reinterpret_cast<uint8_t*>(&insn_bits))) {
+        std::cerr << "Fetch fail at PC=0x" << std::hex << pc << std::endl;
+        abort();
+    }
+
+    // Decode instruction
+    insn_t insn = insn_t(insn_bits);
+
+    // Read Source registers (if any)
+    int rs1 = insn.rs1();
+    int rs2 = insn.rs2();
+    reg_t rs1_val = (rs1 != 0) ? st->XPR[rs1] : 0;
+    reg_t rs2_val = (rs2 != 0) ? st->XPR[rs2] : 0;
+
+    // Disassemble
+    std::string disasm_str = disassembler->disassemble(insn);
+
+    // Step one instruction
+    proc->step(1);
+
+    // Destination register (if any)
+    if(0) {
+        int rd = insn.rd();
+        reg_t rd_val = (rd != 0) ? st->XPR[rd] : 0;
+        
+        std::cout << std::hex << pc << ": 0x" << insn_bits
+                << "  " << disasm_str;
+        if (rd != 0)  { 
+            std::cout << " rd=x"  << rd  << "=" << std::hex << rd_val;
+        }
+        if (rs1 != 0) { 
+            std::cout << " rs1=x" << rs1 << "=" << std::hex << rs1_val;
+        }
+        if (rs2 != 0) { 
+            std::cout << " rs2=x" << rs2 << "=" << std::hex << rs2_val; 
+        }
+        std::cout << std::endl;
+    }
+    return disasm_str;
+}
+
+int mainx(int argc, char** argv) {
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " program.bin" << std::endl;
+        return 1;
+    }
+
+    spike_harness_t sh(argv[1]);
 
     // Step instructions
     for (int i = 0;; i++) {
-        auto* st = proc.get_state();
-        reg_t pc = st->pc;
-
-        // Fetch 32-bit instruction from memory
-        uint32_t insn_bits = 0;
-        if (!simif.mmio_load(pc, sizeof(insn_bits), reinterpret_cast<uint8_t*>(&insn_bits))) {
-            std::cerr << "Fetch fail at PC=0x" << std::hex << pc << std::endl;
-            break;
-        }
-
-        // Decode instruction
-        insn_t insn = insn_t(insn_bits);
-
-        // Read Source registers (if any)
-        int rs1 = insn.rs1();
-        int rs2 = insn.rs2();
-        reg_t rs1_val = (rs1 != 0) ? st->XPR[rs1] : 0;
-        reg_t rs2_val = (rs2 != 0) ? st->XPR[rs2] : 0;
-
-        // Disassemble
-        std::string disasm_str = disassembler->disassemble(insn);
-
-        // Step one instruction
-        proc.step(1);
-
-        // Destination register (if any)
-        if(0) {
-            int rd = insn.rd();
-            reg_t rd_val = (rd != 0) ? st->XPR[rd] : 0;
-            
-            std::cout << std::hex << pc << ": 0x" << insn_bits
-                    << "  " << disasm_str;
-            if (rd != 0)  { 
-                std::cout << " rd=x"  << rd  << "=" << std::hex << rd_val;
-            }
-            if (rs1 != 0) { 
-                std::cout << " rs1=x" << rs1 << "=" << std::hex << rs1_val;
-            }
-            if (rs2 != 0) { 
-                std::cout << " rs2=x" << rs2 << "=" << std::hex << rs2_val; 
-            }
-            std::cout << std::endl;
-        }
+        sh.step1();
     }
 
     return 0;

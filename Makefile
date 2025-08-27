@@ -8,12 +8,21 @@ SRC := $(PKGS) \
 		$(wildcard src/system/*.sv) \
 		$(wildcard src/utils/*.sv)
 
-SRC_DPI := $(wildcard src/core_oracle/*.cc)
+SRC_DPI := $(wildcard src/core_oracle/*.cc) \
+		   $(wildcard src/cosim/*.cpp)
+
+export PKG_CONFIG_PATH=$(CURDIR)/src/cosim/riscv-isa-sim/build/lib/pkgconfig
+
+LIBS = riscv-riscv riscv-disasm riscv-fesvr
+# 		  -std=c++2a -g -O2
+CFLAGS := -std=c++2a -g -O2 $(shell pkg-config --cflags $(LIBS))
+LDFLAGS :=  $(shell pkg-config --libs $(LIBS))
 
 VERILATOR := verilator/bin/verilator
 		SVFLAGS :=  -Wall -Wpedantic \
-	--cc $(SRC_DPI) src/tb.cpp \
-	--CFLAGS "-I$(CURDIR)/src -g" \
+	--cc src/tb.cpp $(SRC_DPI)\
+	--CFLAGS "$(CFLAGS) -I$(CURDIR)/src" \
+	--LDFLAGS "$(LDFLAGS)" \
 	--trace \
 	--sv $(SRC) --Wno-DECLFILENAME --timing \
 	--Wno-UNUSEDSIGNAL \

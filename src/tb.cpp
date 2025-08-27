@@ -107,6 +107,8 @@ void tac(){
     t_start = t_end;
 }
 
+char *tb_binfile; // Dirty mechanism to share binfile
+
 int main(int argc, char **argv) {
     std::cout << "*** Hello from tb (src/tb.cpp)" << std::endl;
     
@@ -149,6 +151,7 @@ int main(int argc, char **argv) {
     std::cout << "*** Instanciate ram" << std::endl;
     char *ram = (char*)RAM_KEY(dut->rootp);
     readBinaryFile(args.binfile, ram, RAM_SIZE);
+    tb_binfile = strdup(args.binfile.c_str());// O:
 
     // for(int i = 0; i < 100; i++){
     //     ram[i] = i;

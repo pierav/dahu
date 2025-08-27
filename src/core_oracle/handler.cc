@@ -13,6 +13,7 @@
 
 #include "core_oracle/dyninst.hh"
 #include "core_oracle/checker.hh"
+#include "cosim/spike_harness.hh"
 
 #define NB_ID_BITS 20
 #define MAX_INST_IDS (1 << NB_ID_BITS)
@@ -113,10 +114,17 @@ void commitInst(DynamicInst &inst){
 static std::ostream& out = std::cout;
 static std::ofstream _out;
 
+spike_harness_t *cosim;
+extern char *tb_binfile;
+
 extern "C" void dpi_monitor_init() {
     std::cout << "*** Hello for dpi (src/core_oracle/handle.cc)" << std::endl;
     inflight[0].id = -1;
     // _out.open("commit.log");
+    cosim = new spike_harness_t(tb_binfile);
+    for(int i = 0; i < 100; i++){
+        std::cout << cosim->step1() << std::endl;
+    }
 }
 
 // Decode event
@@ -131,10 +139,10 @@ extern "C" void dpi_instr_decode(
     if(LOG_ALL){
         out << "Decod:" << inst << std::endl;
     }
-    if(!inst.si->isInst()){
-        out << "Not a valid inst\n";
-        exit(1);
-    }
+    // if(!inst.si->isInst()){
+    //     out << "Not a valid inst\n";
+    //     exit(1);
+    // }
 }
 
 extern "C" void dpi_instr_renamed(
