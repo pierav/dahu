@@ -157,11 +157,11 @@ module fu_branch #() (
         for(int i = 0; i < count_q; i++) begin
             bq_id_t idx = bq_id_t'(i) + commit_id_q;
             bq_entry_t e = bq[idx];
-            $display("BQ[%x] : pc=%x (sn=%x) target=%x(%d) missp=%d",
+            `LOG(EX, "BQ[%x] : pc=%x (sn=%x) target=%x(%d) missp=%d",
                 idx, e.pc, e.id, e.bp.pcnext, e.bp.taken, e.missprediction);
         end
         if(resolved_pc_i_valid) begin
-            $display("BQ[%x] <- target=%x(%d) missp=%d",
+            `LOG(EX, "BQ[%x] <- target=%x(%d) missp=%d",
                 resolved_id_i, resolved_pc_i, resolved_taken_i, missprediction);
         end
     end

@@ -1,6 +1,112 @@
 /* Config file */
 
 package C;
+
+    // I spent too mush time debugging gem5 traces :D
+    // Sources (bitmask)
+    localparam int LOG_IF      = 1 << 1;
+    localparam int LOG_DEC     = 1 << 2;
+    localparam int LOG_REN     = 1 << 3;
+    localparam int LOG_IEW     = 1 << 4;
+    localparam int LOG_LSU     = 1 << 5;
+    localparam int LOG_EX      = 1 << 6;
+    localparam int LOG_COMMIT  = 1 << 7;
+
+    localparam int LOG_MEM     = 1 << 20;
+    localparam int LOG_UART    = 1 << 21;
+
+    // Runtime-configurable log settings
+    int log_mask = 0; // disable all by default
+
+    function bit contains(string haystack, string needle);
+        for (int i = 0; i <= haystack.len() - needle.len(); i++) begin
+            if (haystack.substr(i, i + needle.len() - 1) == needle) begin
+                return 1;
+            end
+        end
+        return 0;
+    endfunction
+
+    // Init task: parse +args
+    task automatic log_init();
+        string mask;
+        if ($value$plusargs("debug-flags=%s", mask)) begin
+            log_mask = 0;
+            if (contains(mask, "-IF") ) log_mask |= LOG_IF;
+            if (contains(mask, "-DEC")) log_mask |= LOG_DEC;
+            if (contains(mask, "-REN")) log_mask |= LOG_REN;
+            if (contains(mask, "-IEW")) log_mask |= LOG_IEW;
+            if (contains(mask, "-LSU")) log_mask |= LOG_LSU;
+            if (contains(mask, "-EX") ) log_mask |= LOG_EX;
+            if (contains(mask, "-COMMIT")) log_mask |= LOG_COMMIT;
+            // Counpound flags
+            if (contains(mask, "-CORE")) 
+                log_mask |= LOG_IF
+                        | LOG_DEC | LOG_REN
+                        | LOG_IEW
+                        | LOG_LSU
+                        | LOG_EX
+                        | LOG_COMMIT;
+            if (contains(mask, "-MEM")) log_mask |= LOG_MEM;
+            if (contains(mask, "-UART")) log_mask |= LOG_UART;
+            if (contains(mask, "-SYS")) 
+                log_mask |= LOG_MEM
+                        | LOG_UART;
+            // if (contains(mask, "-ALL")) log_mask = -1; // All one
+        end
+        $display("Selected flags: %b", log_mask);
+    endtask
+
+    `define _LOG_BASE(src, str) \
+        if ((log_mask & LOG_``src) != 0) \
+            $display(str)
+
+    // Some fun
+    `define DELIM
+    `define LOG(src, p0, p1=ELIM, p2=ELIM, p3=ELIM, p4=ELIM, p5=ELIM,
+                p6=ELIM, p7=ELIM, p8=ELIM, p9=ELIM, p10=ELIM) \
+    `ifdef D``p1 \
+    `_LOG_BASE(src, $sformatf(p0)); \
+    `else \
+    `ifdef D``p2 \
+    `_LOG_BASE(src, $sformatf(p0, p1)); \
+    `else \
+    `ifdef D``p3 \
+    `_LOG_BASE(src, $sformatf(p0, p1, p2)); \
+    `else \
+    `ifdef D``p4 \
+    `_LOG_BASE(src, $sformatf(p0, p1, p2, p3)); \
+    `else \
+    `ifdef D``p5 \
+    `_LOG_BASE(src, $sformatf(p0, p1, p2, p3, p4)); \
+    `else \
+    `ifdef D``p6 \
+    `_LOG_BASE(src, $sformatf(p0, p1, p2, p3, p4, p5)); \
+    `else \
+    `ifdef D``p7 \
+    `_LOG_BASE(src, $sformatf(p0, p1, p2, p3, p4, p5, p6)); \
+    `else \
+    `ifdef D``p8 \
+    `_LOG_BASE(src, $sformatf(p0, p1, p2, p3, p4, p5, p6, p7)); \
+    `else \
+    `ifdef D``p9 \
+    `_LOG_BASE(src, $sformatf(p0, p1, p2, p3, p4, p5, p6, p7, p8)); \
+    `else \
+    `ifdef D``p10 \
+    `_LOG_BASE(src, $sformatf(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9)); \
+    `else \
+    `_LOG_BASE(src, $sformatf(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10)); \
+    `endif \
+    `endif \
+    `endif \
+    `endif \
+    `endif \
+    `endif \
+    `endif \
+    `endif \
+    `endif \
+    `endif
+    
     parameter int XLEN = 64;
     // Register related
     parameter int AREG_ID_BITS = 5; // RISC-V constant

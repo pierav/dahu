@@ -283,7 +283,7 @@ module iew #() (
     end
     always_ff @(posedge clk) begin
         if(di_i_valid) begin
-            $display("Issue: (port0) %s: pc %x (sn=%x) %s <- %s%s fu:%x(%s) op:%x",
+            `LOG(IEW, "Issue: (port0) %s: pc %x (sn=%x) %s <- %s%s fu:%x(%s) op:%x",
                 cause,
                 fuinput_o.pc, fuinput_o.id,
                 di_i.si.rd_valid ?
@@ -314,7 +314,7 @@ module iew #() (
                 fuinput_o.op
             );
         end else begin
-            $display("Issue: (port0) no ready inputs");
+            `LOG(IEW, "Issue: (port0) no ready inputs");
         end
     end
 
@@ -337,14 +337,14 @@ module iew #() (
     always_ff @(posedge clk) begin
         for(int i = 0; i < NR_WB_PORTS; i++) begin
             if(wbfw0_valid[i]) begin
-                $display("WBFW0: (port%s) SUCCESS : pc %x (sn=%x) prd:%x <- %x",
+                `LOG(IEW, "WBFW0: (port%s) SUCCESS : pc %x (sn=%x) prd:%x <- %x",
                     $sformatf("%1d", i),
                     wbfw0[i].pc, wbfw0[i].id,
                     wbfw0[i].prd,
                     wbfw0[i].rdval
                 );
             end else begin
-                $display("WBFW0: (port%s) empty", $sformatf("%1d", i),);
+                `LOG(IEW, "WBFW0: (port%s) empty", $sformatf("%1d", i),);
             end
         end
     end
@@ -517,7 +517,7 @@ module iew #() (
 
     always_ff @(posedge clk) begin
         if(rob_allocated[rob_retire_id_q]) begin
-            $display("Retire: (port0) %s: pc %x (sn=%x) %s",
+            `LOG(IEW, "Retire: (port0) %s: pc %x (sn=%x) %s",
                 rob_pop_data_o.completed ? "SUCCESS " : "FAILURE",
                 rob_pop_data_o.pc, rob_pop_data_o.id,
                 rob_pop_data_o.needprf2arf ?
@@ -527,7 +527,7 @@ module iew #() (
                     "Nothing to wb"
             );
         end else begin 
-            $display("Retire: (port0) empty");
+            `LOG(IEW, "Retire: (port0) empty");
         end
     end
 
@@ -565,23 +565,23 @@ module iew #() (
 
     always_ff @(posedge clk) begin
         if(commit_entry_i_valid) begin
-            $display("Commit: (port0) %s: pc %x (sn=%x) rd:%x=%x (wb?%d) v:%x",
+            `LOG(IEW, "Commit: (port0) %s: pc %x (sn=%x) rd:%x=%x (wb?%d) v:%x",
                 commit_entry_i.completed ? "SUCCESS " : "FAILURE",
                 commit_entry_i.pc, commit_entry_i.id,
                 commit_entry_i.ard, commit_entry_i.prd,
                 commit_isrd_valid_i, commit_retire_rdval_i
             );
             if(is_missprediction) begin
-            $display("Missprediction PC=%x (sn=%x) must jump to: %x (%x)",
+            `LOG(IEW, "Missprediction PC=%x (sn=%x) must jump to: %x (%x)",
                 commit_entry_i.pc,
                 commit_entry_i.id,
                 bq_pop_io.bp.pcnext,
                 bq_pop_io.bp.taken);
             end
-            $display("TRACE:", handler_pkg::dpi_inst_get_dump(
+            `LOG(COMMIT, "TRACE:", handler_pkg::dpi_inst_get_dump(
                 32'(commit_entry_i.id),  commit_entry_i.pc));
         end else begin 
-            $display("Retire: (port0) empty");
+            `LOG(IEW, "Retire: (port0) empty");
         end
     end
 

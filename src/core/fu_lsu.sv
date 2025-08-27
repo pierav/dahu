@@ -172,7 +172,7 @@ module fu_lsu #() (
             end
         end
     end
-    
+
     always_ff @(posedge clk) begin : write_ports
         if (!rstn) begin
             sq_issue_id_q   <= '0;
@@ -191,12 +191,12 @@ module fu_lsu #() (
         end
     end
     always_ff @(negedge clk) begin
-        $display("SQ issueptr=%x commitptr=%x popptr=%x",
+        `LOG(LSU, "SQ issueptr=%x commitptr=%x popptr=%x",
             sq_issue_id_q, sq_commit_id_q, sq_pop_id_q);
         for(int i = 0; i < NR_SQ_ENTRIES; i++) begin
             sq_id_t idx = sq_pop_id_q + sq_id_t'(i);
             if(sq[idx].valid) begin
-                $display("SQ[%x]: %s", idx, dump_sq_entry(sq[idx]));
+                `LOG(LSU, "SQ[%x]: %s", idx, dump_sq_entry(sq[idx]));
             end
         end
     end
@@ -402,7 +402,7 @@ module fu_lsu #() (
 
     always_ff @(negedge clk) begin
         if(dcache_ports_io.load_d_valid) begin
-            $display("LOAD COMPLETE PC:%x (sn=%x), D=%x, fw_mask=%x, fw_data=%x (merged:%x)",
+            `LOG(LSU, "LOAD COMPLETE PC:%x (sn=%x), D=%x, fw_mask=%x, fw_data=%x (merged:%x)",
                  wait_load_q.pc, wait_load_q.id, load_data_sext,
                     wait_load_q.fw_mask, wait_load_q.fw_data, load_data_merged);
         end

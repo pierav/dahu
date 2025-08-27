@@ -199,11 +199,11 @@ module decode #() (
 
     always_ff @(posedge clk) begin
         if(!di_o_ready) begin
-            $display("Decode: (port0) next stage not ready");
+            `LOG(DEC, "Decode: (port0) next stage not ready");
         end else if(!in_i_valid) begin
-            $display("Decode: (port0) no valids inputs");
+            `LOG(DEC, "Decode: (port0) no valids inputs");
         end else begin
-            $display("Decode: (port0) %s: pc %x (sn=%x) %s <- %s %s | imm=%x (%s%s)",
+            `LOG(DEC, "Decode: (port0) %s: pc %x (sn=%x) %s <- %s %s | imm=%x (%s%s)",
                 di_o_valid ?  "SUCCESS " : "FAILURE",
                 di_o.si.pc, di_o.id,
                 di_o.si.rs1_valid ? dumpAReg(di_o.si.rs1) : "",

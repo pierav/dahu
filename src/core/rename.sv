@@ -90,21 +90,25 @@ module rename #() (
             end
         end
     end
-    always_ff @(negedge clk) begin
-        $write("Rename RMT: [");
+
+    string str;
+    always_comb begin
+        str = "Rename RMT: [";
         for (int i = 0; i < ARFSIZE; i++) begin
             areg_id_t areg = areg_id_t'(i);
             if (rmt_valid[i]) begin
-                $write("%s, ", dumpAPReg(areg, rmt[i], rmt_valid[i]));
+                str = {str, $sformatf("%s, ", dumpAPReg(areg, rmt[i], rmt_valid[i]))};
             end
         end
-        $write("]");
+        str = {str, "]"};
+    end
+    always_ff @(negedge clk) begin
+        `LOG(REN, str);
         if (rmt_write_valid) begin
-            $write(" (RMTW: %s<-%s)",
+            `LOG(REN, "(RMTW: %s<-%s)",
                 dumpAReg(rmt_write_areg),
                 dumpPReg(rmt_write, 1'b1));
         end
-        $display("");
         // $write("Rename Reverse RMT: [");
         // for(int i = 0; i < PRFSIZE; i++) begin
         //     preg_id_t preg = preg_id_t'(i);
@@ -113,7 +117,6 @@ module rename #() (
         //         dumpAReg(reverse_rmt[preg]));
         // end
         // $write("]");
-        // $display("");
     end
 
     /* Allocator (for now use a counter) */
@@ -219,13 +222,13 @@ module rename #() (
     end
     always_ff @(posedge clk) begin
         if(!di_i_ready) begin
-            $display("Rename: (port0) output is not ready");
+            `LOG(REN, "Rename: (port0) output is not ready");
         end else if (!di_i_valid) begin
-            $display("Rename: (port0) no valids inputs");
+            `LOG(REN, "Rename: (port0) no valids inputs");
         end else if (stall) begin
-            $display("Rename: (port0) out of pregs");
+            `LOG(REN, "Rename: (port0) out of pregs");
         end else begin 
-            $display("Rename: (port0) %s: pc %x (sn=%x) %s <- %s %s (allocate?%x)",
+            `LOG(REN, "Rename: (port0) %s: pc %x (sn=%x) %s <- %s %s (allocate?%x)",
                 "SUCCESS  ",
                 di_o.si.pc, di_o.id,
                 di_o.si.rd_valid ?

@@ -108,7 +108,7 @@ void commitInst(DynamicInst &inst){
 //     int         prd;
 // };
 
-#define LOG_ALL 1
+#define LOG_ALL 0
 
 static std::ostream& out = std::cout;
 static std::ofstream _out;
@@ -203,18 +203,22 @@ extern "C" void dpi_instr_commit(int id, uint64_t pc) {
     // out << std::setw(16) << std::setfill('0') << std::right << std::dec
     //     << cycle << ": "
     inst.committed = true;
+    #if LOG_ALL
     out << "DPI-Commit: "
         << inst << std::endl;
     checker.on_commit(&inst);
+    #endif
     commitInst(inst);
 }
 
 // Handle time locally
 extern "C" void dpi_tick() {
     cycle++;
+    #if LOG_ALL
     std::cout << "------------ cycle " 
               << cycle 
               << " -----------" << std::endl;
+    #endif
 }
 
 extern "C" void dpi_squash_from(int id) {

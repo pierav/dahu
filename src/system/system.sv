@@ -8,6 +8,15 @@ module system #() (
   output logic [C::XLEN-1:0] exit_code_o
 );
 
+
+  // Usage exemple
+  initial begin
+      log_init();
+      `LOG(COMMIT, "Hello from logger %s", 42);
+      `LOG(COMMIT, 42);
+      `LOG(COMMIT, "Hello from logger without args");
+  end
+  
   logic [C::XLEN-1:0] fetch_addr;
   logic [32-1:0]      fetch_data;
   logic [C::XLEN-1:0] fetch_data64;
@@ -73,7 +82,7 @@ module system #() (
 
   always_ff @(negedge clk) begin 
     if(dcache_ports_io.wvalid) begin
-      $display("MEM STORES @=%x, D=%x, MASK=%x (MAP: %s)",
+      `LOG(MEM, "MEM STORES @=%x, D=%x, MASK=%x (MAP: %s)",
         dcache_ports_io.waddr, dcache_ports_io.wdata,
         dcache_ports_io.wmask,
           uart_wvalid ? "UART" :
@@ -81,14 +90,14 @@ module system #() (
         );
     end
     if (dcache_ports_io.load_d_valid) begin
-      $display("MEM LOAD ... returns D=%x (MAP: %s)",
+      `LOG(MEM, "MEM LOAD ... returns D=%x (MAP: %s)",
           dcache_ports_io.load_d_data,
           uart_rvalid_q ? "UART" :
           mem_rvalid_q  ? "MEM"  : "BAD_ADDR"
         );
     end
     if(dcache_ports_io.load_a_valid) begin
-      $display("MEM LOAD @=%x (MAP: %s) returns ...",
+      `LOG(MEM, "MEM LOAD @=%x (MAP: %s) returns ...",
         dcache_ports_io.load_a_addr,
           uart_rvalid ? "UART" :
           mem_rvalid  ? "MEM"  : "BAD_ADDR"
