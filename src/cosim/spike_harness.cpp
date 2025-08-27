@@ -5,6 +5,8 @@
 #include "riscv/mmu.h"
 #include "riscv/decode.h"
 #include "riscv/disasm.h"
+#include "riscv/devices.h"
+#include "riscv/platform.h"
 
 #include <iostream>
 #include <fstream>
@@ -14,70 +16,38 @@
 #include <cstring>
 
 #define MYISA "rv64imafd"
-
-#define BASE_ADDR 0x80000000
-char host_mem[1024 * 1024]; // backing storage
-
-struct mymem_t {
-    const reg_t base_addr = BASE_ADDR;
-    const reg_t mem_size  = 1024 * 1024; // 128 MB
-
-    // Load 'size' bytes from memory at 'addr' into 'ret'
-    bool load(reg_t addr, size_t size, uint8_t* ret) {
-        if (addr < base_addr || addr + size > base_addr + mem_size) {
-            std::cerr << "Load out of bounds: addr=0x" << std::hex << addr
-                      << " size=" << std::dec << size << std::endl;
-            return false;
-        }
-        std::memcpy(ret, host_mem + (addr - base_addr), size);
-        // std::cout << "Load: addr=0x" << std::hex << addr
-        //           << " size=" << std::dec << size << " data=";
-        // for (size_t i = 0; i < size; i++)
-        //     std::cout << std::hex << +ret[i] << " ";
-        // std::cout << std::endl;
-        return true;
-    }
-
-    // Store 'size' bytes from 'data' into memory at 'addr'
-    bool store(reg_t addr, size_t size, const uint8_t* data) {
-        if (addr < base_addr || addr + size > base_addr + mem_size) {
-            std::cerr << "Store out of bounds: addr=0x" << std::hex << addr
-                      << " size=" << std::dec << size << std::endl;
-            return false;
-        }
-        std::memcpy(host_mem + (addr - base_addr), data, size);
-        // std::cout << "Store: addr=0x" << std::hex << addr
-        //           << " size=" << std::dec << size << " data=";
-        // for (size_t i = 0; i < size; i++)
-        //     std::cout << std::hex << +data[i] << " ";
-        // std::cout << std::endl;
-        return true;
-    }
-};
-
+#define RAM_BASE DRAM_BASE
+#define RAM_SIZE (1 << 20)
 
 struct dummy_simif_t : public simif_t {
-    mymem_t mem;
     cfg_t cfg;
+    bus_t bus;
     std::map<size_t, processor_t*> harts;
 
-    dummy_simif_t() {
-        cfg.isa = MYISA;
+    dummy_simif_t(size_t nprocs = 1) {
+        cfg.isa  = MYISA;
         cfg.priv = DEFAULT_PRIV;
-    }
-    char* addr_to_mem(reg_t paddr) override {
-        char *ret = host_mem + paddr - BASE_ADDR;
-        // std::cout << "SIMIF addr_2_mem:" << std::hex << paddr << "->" << (uintptr_t)ret << std::endl;
-        return ret;
+        mem_t* ram = new mem_t(RAM_SIZE);
+        clint_t* clint = new clint_t(this, 10000000 /*10 MHz*/, false);
+        plic_t* plic = new plic_t(this, 1024);
+        ns16550_t* uart = new ns16550_t(plic, 1, 0, 1);
+        bus.add_device(RAM_BASE, ram);
+        bus.add_device(CLINT_BASE, clint);
+        bus.add_device(PLIC_BASE, plic);
+        bus.add_device(NS16550_BASE, uart);
     }
 
-    virtual bool mmio_load(reg_t paddr, size_t len, uint8_t* bytes) override {
-        return mem.load(paddr, len, bytes);
+    char* addr_to_mem(reg_t addr) override {
+       return nullptr;
     }
 
-    virtual bool mmio_store(reg_t paddr, size_t len, const uint8_t* bytes) override {
-        return mem.store(paddr, len, bytes);
-    };
+    bool mmio_load(reg_t addr, size_t len, uint8_t* bytes) override {
+        return bus.load(addr, len, bytes);
+    }
+
+    bool mmio_store(reg_t addr, size_t len, const uint8_t* bytes) override {
+        return bus.store(addr, len, bytes);
+    }
   
     // Callback for processors to let the simulation know they were reset.
     void proc_reset(unsigned id) override {
@@ -113,25 +83,26 @@ int main(int argc, char** argv) {
     const uint8_t* binptr = reinterpret_cast<const uint8_t*>(buf.data());
     
     std::cout << "Initialize mem with bin " << argv[1] << std::endl;
-    // memory region
-   
+    
+    // Create IO handler
     dummy_simif_t simif;
+
     // Write program in memory
-    std::memmove(host_mem, binptr, size);
+    simif.mmio_store(RAM_BASE, size, binptr);
 
     // Create processor
     processor_t proc("RV64IM", "MSU", &simif.cfg, &simif, 0, false, nullptr, std::cout);
 
-    std::cout << "Initialise proc PC to" << BASE_ADDR << std::endl;
+    std::cout << "Initialise proc PC to" << RAM_BASE << std::endl;
     // Set PC to start of binary
-    proc.get_state()->pc = BASE_ADDR;
+    proc.get_state()->pc = RAM_BASE;
 
 
     isa_parser_t isa_parser(MYISA, DEFAULT_PRIV);
     disassembler_t* disassembler = new disassembler_t(&isa_parser);
 
     // Step instructions
-    for (int i = 0; i < 200; i++) {
+    for (int i = 0;; i++) {
         auto* st = proc.get_state();
         reg_t pc = st->pc;
 
@@ -153,26 +124,28 @@ int main(int argc, char** argv) {
 
         // Disassemble
         std::string disasm_str = disassembler->disassemble(insn);
-    
+
         // Step one instruction
         proc.step(1);
 
         // Destination register (if any)
-        int rd = insn.rd();
-        reg_t rd_val = (rd != 0) ? st->XPR[rd] : 0;
-        
-        std::cout << std::hex << pc << ": 0x" << insn_bits
-                << "  " << disasm_str;
-        if (rd != 0)  { 
-            std::cout << " rd=x"  << rd  << "=" << std::hex << rd_val;
+        if(0) {
+            int rd = insn.rd();
+            reg_t rd_val = (rd != 0) ? st->XPR[rd] : 0;
+            
+            std::cout << std::hex << pc << ": 0x" << insn_bits
+                    << "  " << disasm_str;
+            if (rd != 0)  { 
+                std::cout << " rd=x"  << rd  << "=" << std::hex << rd_val;
+            }
+            if (rs1 != 0) { 
+                std::cout << " rs1=x" << rs1 << "=" << std::hex << rs1_val;
+            }
+            if (rs2 != 0) { 
+                std::cout << " rs2=x" << rs2 << "=" << std::hex << rs2_val; 
+            }
+            std::cout << std::endl;
         }
-        if (rs1 != 0) { 
-            std::cout << " rs1=x" << rs1 << "=" << std::hex << rs1_val;
-        }
-        if (rs2 != 0) { 
-            std::cout << " rs2=x" << rs2 << "=" << std::hex << rs2_val; 
-        }
-        std::cout << std::endl;
     }
 
     return 0;
