@@ -42,7 +42,6 @@ module decode #() (
     logic uop_extra_valid_q, uop_extra_valid_d;
     assign conv_uop_0.pc       = decode_si.pc;
     assign conv_uop_0.tinst    = 32'h00004097; // auipc ra, 4 :) (A bit hacky...)
-    // TODO: only ra ?
     assign conv_uop_0.fu       = FU_ALU;
     assign conv_uop_0.op       = AUIPC;
     assign conv_uop_0.rs1      = '0;
@@ -97,6 +96,9 @@ module decode #() (
     // uop selection 
     si_t uop_si;
     logic uop_si_valid;
+
+    logic is_uop;
+    logic is_uop_last;
     RV::jtype_t tinst;
     always_comb begin
         tinst = '0;
@@ -119,6 +121,9 @@ module decode #() (
         end
     end
 
+    assign is_uop = uop_extra_valid_q || push_uop;
+    assign is_uop_last = uop_extra_valid_q;
+
     // We have to stall 1 cycle the previous stage.
     // Insert the bubble as late as possible ? 
     // In this way the pipe buffer will be filler ?
@@ -139,7 +144,6 @@ module decode #() (
         .debug_mode_i(1'b0),
         .is_fault_o(is_fault)
     );
-
 
     // TODO Stall allocation sq, lq
     id_t inst_id_q;
@@ -189,6 +193,8 @@ module decode #() (
         di_o.bqid   = isBranch ? bq_push_io.bqid : '0;
         di_o.id     = inst_id_q;
         di_o.fault  = is_fault;
+        di_o.is_uop = is_uop;
+        di_o.is_uop_last = is_uop_last;
     end
     assign di_o_valid = uop_si_valid; // Cannot stall
 

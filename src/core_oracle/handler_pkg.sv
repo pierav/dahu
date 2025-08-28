@@ -10,7 +10,9 @@ package handler_pkg;
     void dpi_instr_decode(
         input int id,
         input longint unsigned pc,
-        input int unsigned inst
+        input int unsigned inst,
+        input int unsigned is_uop,
+        input int unsigned is_uop_last
     );
 
     import "DPI-C" context function

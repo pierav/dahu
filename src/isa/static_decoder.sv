@@ -153,21 +153,20 @@ module static_decoder #() (
                 rd != 0; // Handle the risc-v x0 hardwired to 0
   // TODO handle special case : shamt and uimm
 
-  assign si_o.pc        = pc_i;
-  assign si_o.tinst     = data_i;
-  assign si_o.fu        = fuop.fu;
-  assign si_o.op        = fuop.op;
-  assign si_o.rs1       = rs1;
-  assign si_o.rs2       = rs2;
-  assign si_o.rd        = rd;
-  assign si_o.rs1_valid = rs1v;
-  assign si_o.rs2_valid = rs2v;
-  assign si_o.rd_valid  = rdv;
-  assign si_o.imm       = imm;
-  assign si_o.use_uimm  = use_uimm; // need use_pc ?
-  assign si_o.size      = fuop.size;
-
-  assign si_o.valid     = valid;
+  assign si_o.pc          = pc_i;
+  assign si_o.tinst       = data_i;
+  assign si_o.fu          = fuop.fu;
+  assign si_o.op          = fuop.op;
+  assign si_o.rs1         = rs1;
+  assign si_o.rs2         = rs2;
+  assign si_o.rd          = rd;
+  assign si_o.rs1_valid   = rs1v;
+  assign si_o.rs2_valid   = rs2v;
+  assign si_o.rd_valid    = rdv;
+  assign si_o.imm         = imm;
+  assign si_o.use_uimm    = use_uimm; // need use_pc ?
+  assign si_o.size        = fuop.size;
+  assign si_o.valid       = valid;
 
 
 endmodule

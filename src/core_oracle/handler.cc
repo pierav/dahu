@@ -19,6 +19,13 @@
 #define MAX_INST_IDS (1 << NB_ID_BITS)
 #define LOGFILE "trace.log"
 
+#define LOG_ALL 1
+
+static std::ostream& out = std::cout;
+static std::ofstream _out;
+
+spike_harness_t *cosim;
+extern char *tb_binfile;
 checker_t checker;
 uint64_t cycle = 0;
 
@@ -109,13 +116,7 @@ void commitInst(DynamicInst &inst){
 //     int         prd;
 // };
 
-#define LOG_ALL 0
 
-static std::ostream& out = std::cout;
-static std::ofstream _out;
-
-spike_harness_t *cosim;
-extern char *tb_binfile;
 
 void comsim_do_check_commit(DynamicInst &inst){
     // First check PC:
@@ -160,13 +161,16 @@ extern "C" void dpi_monitor_init() {
 extern "C" void dpi_instr_decode(
     int id,
     uint64_t pc,
-    uint32_t instr
+    uint32_t instr,
+    uint32_t is_uop,
+    uint32_t is_uop_last
 ){
-    DynamicInst _inst = DynamicInst(id, pc, instr);
+    DynamicInst _inst = DynamicInst(id, pc, instr, is_uop, is_uop_last);
     DynamicInst &inst = insertInst(id, _inst);
 
     if(LOG_ALL){
         out << "Decod:" << inst << std::endl;
+        out << " is_uop " << is_uop <<  " is_uop_last" << is_uop_last << std::endl;
     }
     // if(!inst.si->isInst()){
     //     out << "Not a valid inst\n";
@@ -246,7 +250,10 @@ extern "C" void dpi_instr_commit(int id, uint64_t pc) {
     checker.on_commit(&inst);
     #endif
     commitInst(inst);
-    comsim_do_check_commit(inst);
+    // Ignore the uop decomposition : only check arch state
+    if(!inst.is_uop || (inst.is_uop && inst.is_uop_last)){
+        comsim_do_check_commit(inst);
+    }
     
 }
 

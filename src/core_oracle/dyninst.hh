@@ -14,7 +14,7 @@ struct DynamicInst {
     uint64_t id;
     xlen_t pc;
     const StaticInst *si = nullptr;
-    
+    bool is_uop, is_uop_last;
 
     // Rename stage
     bool renammed = false;
@@ -39,8 +39,10 @@ struct DynamicInst {
     bool committed = false;
 
     DynamicInst() {};
-    DynamicInst(uint64_t id_, xlen_t pc_, uint32_t inst) :
-        id(id_), pc(pc_), si(StaticInst::decode(inst)){};
+    DynamicInst(uint64_t id_, xlen_t pc_, uint32_t inst, bool is_uop_,
+        bool is_uop_last_) :
+        id(id_), pc(pc_), si(StaticInst::decode(inst)),
+        is_uop(is_uop_), is_uop_last(is_uop_last_) {};
 
     void dumpreg(std::ostream &os, std::string areg,
         int preg, int renammed) const {
@@ -89,7 +91,14 @@ struct DynamicInst {
 
     std::ostream& dump(std::ostream& os) const {
         os << std::setw(16) << std::setfill(' ') << std::hex << std::right
-           << pc << ": "
+           << pc;
+        if(is_uop){
+            os << ".uop";
+            if(is_uop_last){
+                os << ".last";
+            }
+        }
+        os << ": "
            << "(sn=" << std::setfill('0') << std::setw(3) << std::hex
            << id << ") "
            << "(" << std::setw(8) << std::setfill('0') << std::hex << si->instr << ") "

@@ -274,7 +274,10 @@ module core #() (
             handler_pkg::dpi_instr_decode(
                 32'(dec2ren_di_d.id),
                 dec2ren_di_d.si.pc,
-                dec2ren_di_d.si.tinst);
+                dec2ren_di_d.si.tinst,
+                32'(dec2ren_di_d.is_uop),
+                32'(dec2ren_di_d.is_uop_last)
+            );
         end
         if(ren2issue_di_valid_q) begin
             handler_pkg::dpi_instr_renamed(

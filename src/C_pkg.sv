@@ -407,6 +407,8 @@ package C;
         logic prs2_renammed;
         preg_id_t prd; // Always renammed 
         bq_id_t            bqid; // Branch Queue ID used by branchs
+        logic            is_uop; // is micro operation
+        logic            is_uop_last;
     } di_t; // DynamicInst
 
     /* Packed everything to make verilator happy */
