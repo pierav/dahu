@@ -9,24 +9,16 @@ module branch_alu(
     output logic      taken_o,
     output xlen_t     target_pc_o
 );
-
-    xlen_t diff;
-    logic zero, sign, carry;
-    // Single subtraction with carry-out
-    assign {carry, diff} = {1'b0, rs1} - {1'b0, rs2}; 
-    assign zero = (diff == 64'd0);
-    assign sign = diff[63];
-
     /* Branch decision logic */
     always_comb begin : branch_taken_comp
         unique case (op)
             JAL, JALR: taken_o = '1;
-            BLT:       taken_o = sign;
-            BLTU:      taken_o = ~carry;
-            BGE:       taken_o = ~sign;
-            BGEU:      taken_o = carry;
-            BEQ:       taken_o = zero;
-            BNE:       taken_o = ~zero;
+            BEQ:       taken_o = (rs1 == rs2);
+            BNE:       taken_o = (rs1 != rs2);
+            BLT:       taken_o = $signed(rs1) < $signed(rs2);
+            BGE:       taken_o = $signed(rs1) >= $signed(rs2);
+            BLTU:      taken_o = rs1 < rs2;
+            BGEU:      taken_o = rs1 >= rs2;
             default:   taken_o = 'x; // don't care
         endcase
     end
