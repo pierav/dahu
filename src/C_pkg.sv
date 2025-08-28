@@ -562,6 +562,23 @@ package C;
 
     endfunction
 
+    /* Utils */
+    function automatic logic [64-1:0] sext32to64(logic [32-1:0] x);
+        return {{32{x[31]}}, x};
+    endfunction
+
+    function automatic logic [64-1:0] zext32to64(logic [32-1:0] x);
+        return {{32'b0}, x};
+    endfunction
+
+    function automatic logic [64-1:0] ext32to64(logic [32-1:0] x, logic s);
+        if(s) begin
+            return sext32to64(x);
+        end else begin
+            return zext32to64(x);
+        end
+    endfunction
+
 endpackage
 
 interface csr_if #();
