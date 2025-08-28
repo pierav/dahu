@@ -148,6 +148,17 @@ std::string spike_harness_t::step1(){
     return disasm_str;
 }
 
+
+uint64_t spike_harness_t::get_pc(){
+    return proc->get_state()->pc;
+}
+
+uint64_t spike_harness_t::get_xreg(int reg){
+    return proc->get_state()->XPR[reg];
+}
+
+
+
 int mainx(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " program.bin" << std::endl;

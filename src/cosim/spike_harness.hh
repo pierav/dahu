@@ -13,4 +13,8 @@ class spike_harness_t {
     public:
     spike_harness_t(char *binfile);
     std::string step1();
+
+    public:
+    uint64_t get_pc();
+    uint64_t get_xreg(int reg);
 };

@@ -11,12 +11,13 @@ SRC := $(PKGS) \
 SRC_DPI := $(wildcard src/core_oracle/*.cc) \
 		   $(wildcard src/cosim/*.cpp)
 
-export PKG_CONFIG_PATH=$(CURDIR)/src/cosim/riscv-isa-sim/build/lib/pkgconfig
-
+LIB_PATH = $(CURDIR)/src/cosim/riscv-isa-sim/build/lib/pkgconfig
+pkgconf  = $(shell env PKG_CONFIG_PATH=$(LIB_PATH) pkg-config $1)
 LIBS = riscv-riscv riscv-disasm riscv-fesvr
+
 # 		  -std=c++2a -g -O2
-CFLAGS := -std=c++2a -g -O2 $(shell pkg-config --cflags $(LIBS))
-LDFLAGS :=  $(shell pkg-config --libs $(LIBS))
+CFLAGS := -std=c++2a -g -O2 $(call pkgconf, --cflags $(LIBS))
+LDFLAGS :=  $(call pkgconf, --libs $(LIBS))
 
 VERILATOR := verilator/bin/verilator
 		SVFLAGS :=  -Wall -Wpedantic \

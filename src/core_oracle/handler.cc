@@ -117,14 +117,43 @@ static std::ofstream _out;
 spike_harness_t *cosim;
 extern char *tb_binfile;
 
+void comsim_do_check_commit(DynamicInst &inst){
+    // First check PC:
+    fatal_if (cosim->get_pc() != inst.pc,
+        "Invalid fetched PC : expected %016lx, got %016lx",
+                cosim->get_pc(),
+                inst.pc);
+    // Check sources
+    if(inst.si->nr_src >= 1){
+        int idx = inst.si->_rs1();
+        fatal_if (cosim->get_xreg(idx) != inst.rsval[0], "Invalid rs1");
+    }
+    if(inst.si->nr_src >= 2){
+        int idx = inst.si->_rs2();
+        fatal_if (cosim->get_xreg(idx) != inst.rsval[1], "Invalid rs2");
+    }
+    
+    /* Do a cosim step */
+    cosim->step1();
+
+    if(inst.si->nr_dst){
+        int idx = inst.si->_rd();
+        fatal_if (cosim->get_xreg(idx) != inst.rdval[0],
+            "Invalid rd : expected %016lx, got %016lx",
+                cosim->get_xreg(idx),
+                inst.rdval[0]);
+    }
+    /* Todo check CSR */
+}
+
 extern "C" void dpi_monitor_init() {
     std::cout << "*** Hello for dpi (src/core_oracle/handle.cc)" << std::endl;
     inflight[0].id = -1;
     // _out.open("commit.log");
     cosim = new spike_harness_t(tb_binfile);
-    for(int i = 0; i < 100; i++){
-        std::cout << cosim->step1() << std::endl;
-    }
+    // for(int i = 0; i < 100; i++){
+    //     std::cout << cosim->step1() << std::endl;
+    // }
 }
 
 // Decode event
@@ -211,12 +240,14 @@ extern "C" void dpi_instr_commit(int id, uint64_t pc) {
     // out << std::setw(16) << std::setfill('0') << std::right << std::dec
     //     << cycle << ": "
     inst.committed = true;
-    #if LOG_ALL
+    #if 1
     out << "DPI-Commit: "
         << inst << std::endl;
     checker.on_commit(&inst);
     #endif
     commitInst(inst);
+    comsim_do_check_commit(inst);
+    
 }
 
 // Handle time locally

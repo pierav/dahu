@@ -16,6 +16,14 @@ module system #() (
       `LOG(COMMIT, 42);
       `LOG(COMMIT, "Hello from logger without args");
   end
+
+  always @(posedge clk) begin
+    #0 $display("---------------- neg ----------------");
+  end
+
+  always @(negedge clk) begin
+    #0 $display("--------------- new cycle -----------");
+  end
   
   logic [C::XLEN-1:0] fetch_addr;
   logic [32-1:0]      fetch_data;
