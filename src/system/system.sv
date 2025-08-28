@@ -87,7 +87,6 @@ module system #() (
     mem_rvalid_q <= mem_rvalid;
   end
 
-
   always_ff @(negedge clk) begin 
     if(dcache_ports_io.wvalid) begin
       `LOG(MEM, "MEM STORES @=%x, D=%x, MASK=%x (MAP: %s)",
@@ -113,17 +112,21 @@ module system #() (
     end
   end
 
-  logic [8-1:0] uart_rdata;
   xlen_t        mem_rata;
+  xlen_t        uart_rdata;
+  
+  logic [8-1:0] uart_rdata8;
+  assign uart_rdata = {8{uart_rdata8}};
+
   uart8250 uart8250 (
     .clk(clk),
     .rstn(rstn),
     .rvalid(uart_rvalid),
-    .raddr(raddrw[2:0]),
-    .rdata(uart_rdata),
+    .raddr(raddr[2:0]),
+    .rdata(uart_rdata8),
     // Write port
     .wvalid(uart_wvalid),
-    .waddr(waddrw[2:0]),
+    .waddr(waddr[2:0]),
     .wdata(dcache_ports_io.wdata[8-1:0])
   );
 
@@ -146,7 +149,7 @@ module system #() (
     .wmask(dcache_ports_io.wmask)
   );
 
-  assign dcache_ports_io.load_d_data = uart_rvalid_q ? xlen_t'(uart_rdata) :
+  assign dcache_ports_io.load_d_data = uart_rvalid_q ? uart_rdata :
                                        mem_rvalid_q  ? mem_rata :
                                        64'hbadabadabadabada;
 
