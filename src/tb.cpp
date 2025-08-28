@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
     uint64_t exit_code_o = 0;
 
     // Simulation variables
-    const uint64_t MAX_CYCLES = 10000000;  // max cycles to avoid infinite loop
+    const uint64_t MAX_CYCLES = 100000000;  // max cycles to avoid infinite loop
 
     // Initialise ram
     std::cout << "*** Instanciate ram" << std::endl;

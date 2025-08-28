@@ -8,21 +8,17 @@ module system #() (
   output logic [C::XLEN-1:0] exit_code_o
 );
 
-
-  // Usage exemple
   initial begin
       log_init();
-      `LOG(COMMIT, "Hello from logger %s", 42);
-      `LOG(COMMIT, 42);
-      `LOG(COMMIT, "Hello from logger without args");
+      `LOG(COMMIT, "Hello from logger");
   end
 
   always @(posedge clk) begin
-    #0 $display("---------------- neg ----------------");
+    #0 `LOG(PIPE, "======================================== #0 posedge ========================================");
   end
 
   always @(negedge clk) begin
-    #0 $display("--------------- new cycle -----------");
+    #0 `LOG(PIPE, "======================================== #0 negedge ========================================");
   end
   
   logic [C::XLEN-1:0] fetch_addr;

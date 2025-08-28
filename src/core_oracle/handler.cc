@@ -19,7 +19,7 @@
 #define MAX_INST_IDS (1 << NB_ID_BITS)
 #define LOGFILE "trace.log"
 
-#define LOG_ALL 1
+#define LOG_ALL 0
 
 static std::ostream& out = std::cout;
 static std::ofstream _out;
@@ -140,8 +140,11 @@ void comsim_do_check_commit(DynamicInst &inst){
     if(inst.si->nr_dst){
         int idx = inst.si->_rd();
         uint64_t csr;
-        if(inst.isCSR(csr) && csr == CSR_MCYCLE){
+        if(inst.isCSR(csr) && 
+            (csr == CSR_MCYCLE || csr == CSR_CYCLE ||
+             csr == CSR_INSTRET || csr == CSR_MINSTRET)){
             // Fix the cosim time with the RTL time
+            // TODO update internal csr before read ?
             cosim->set_xreg(idx, inst.rdval[0]);
         }
         fatal_if (cosim->get_xreg(idx) != inst.rdval[0],
@@ -251,7 +254,7 @@ extern "C" void dpi_instr_commit(int id, uint64_t pc) {
     // out << std::setw(16) << std::setfill('0') << std::right << std::dec
     //     << cycle << ": "
     inst.committed = true;
-    #if 1
+    #if LOG_ALL
     out << "DPI-Commit: "
         << inst << std::endl;
     checker.on_commit(&inst);

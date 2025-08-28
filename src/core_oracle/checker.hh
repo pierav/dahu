@@ -52,7 +52,7 @@ struct checker_t {
             uint64_t val = inst->rdval[i];
             rf[reg] = val;
             rfinit[reg] = true;
-            std::cout << "Write " << val << " at id " << reg_name(reg) << std::endl;
+            // std::cout << "Write " << val << " at id " << reg_name(reg) << std::endl;
         }
     }
 

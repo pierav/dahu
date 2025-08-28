@@ -259,7 +259,9 @@ module core #() (
     csr_file #() csr_file (
         .clk(clk),
         .rstn(rstn),
-        .csr_io(csr_io)
+        .csr_io(csr_io),
+        .retire_entry_i(retire_entry),
+        .retire_entry_i_valid(retire_entry_valid)
     );
 
     initial begin

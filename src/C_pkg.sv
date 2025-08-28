@@ -11,6 +11,8 @@ package C;
     localparam int LOG_LSU     = 1 << 5;
     localparam int LOG_EX      = 1 << 6;
     localparam int LOG_COMMIT  = 1 << 7;
+    localparam int LOG_PIPE    = 1 << 8;
+    
 
     localparam int LOG_MEM     = 1 << 20;
     localparam int LOG_UART    = 1 << 21;
@@ -46,12 +48,13 @@ package C;
                         | LOG_IEW
                         | LOG_LSU
                         | LOG_EX
-                        | LOG_COMMIT;
+                        | LOG_COMMIT | LOG_PIPE;
             if (contains(mask, "-MEM")) log_mask |= LOG_MEM;
             if (contains(mask, "-UART")) log_mask |= LOG_UART;
             if (contains(mask, "-SYS")) 
                 log_mask |= LOG_MEM
-                        | LOG_UART;
+                        | LOG_UART
+                        | LOG_PIPE;
             // if (contains(mask, "-ALL")) log_mask = -1; // All one
         end
         $display("Selected flags: %b", log_mask);
@@ -106,7 +109,15 @@ package C;
     `endif \
     `endif \
     `endif
-    
+  
+    // Usage exemple
+    // initial begin
+    //     log_init();
+    //     `LOG(COMMIT, "Hello from logger %s", 42);
+    //     `LOG(COMMIT, 42);
+    //     `LOG(COMMIT, "Hello from logger without args");
+    // end
+
     parameter int XLEN = 64;
     // Register related
     parameter int AREG_ID_BITS = 5; // RISC-V constant
@@ -115,7 +126,7 @@ package C;
     parameter int ARFSIZE = 1 << AREG_ID_BITS;
     // Pipe width
     parameter int NR_ISSUE_PORTS = 1;
-    parameter int NR_WB_PORTS = 4;
+    parameter int NR_WB_PORTS = 5;
     parameter int NR_COMPL_PORTS = NR_WB_PORTS + 2; // Completion ports
     parameter int NR_COMMIT_PORTS = 1;
     parameter int NR_ISSUE_PRF_READ_PORTS = NR_ISSUE_PORTS * 2; // TODO FMA
@@ -178,8 +189,9 @@ package C;
         BLT, BLTU, BGE, BGEU, BEQ, BNE
     } ctrl_set_t;
 
+    // Use MULW here to simplify multiplier
     typedef enum logic [NB_BITS_FU_OP-1:0] {
-        MUL, MULH, MULHU, MULHSU
+        MUL, MULH, MULHU, MULHSU, MULW
     } mul_set_t;
 
     typedef enum logic [NB_BITS_FU_OP-1:0] {
@@ -324,7 +336,7 @@ package C;
     parameter fuop_t I_DIVU   = {FU_DIV,     DIVU,    SIZE_D, TYPE_R};
     parameter fuop_t I_REM    = {FU_DIV,     REM,     SIZE_D, TYPE_R};
     parameter fuop_t I_REMU   = {FU_DIV,     REMU,    SIZE_D, TYPE_R};
-    parameter fuop_t I_MULW   = {FU_MUL,     MUL,     SIZE_W, TYPE_R};
+    parameter fuop_t I_MULW   = {FU_MUL,     MULW,    SIZE_D, TYPE_R};
     parameter fuop_t I_DIVW   = {FU_DIV,     DIV,     SIZE_W, TYPE_R};
     parameter fuop_t I_DIVUW  = {FU_DIV,     DIVU,    SIZE_W, TYPE_R};  
     parameter fuop_t I_REMW   = {FU_DIV,     REM,     SIZE_W, TYPE_R};
@@ -450,6 +462,7 @@ package C;
         // logic needCSRfree;
         fu_t fu; // used to trigger the valid fu on commit
         logic completed; // WB performed or completion
+        logic is_uop_final; // Inst or last uop
     } rob_entry_t;
 
 
@@ -582,12 +595,14 @@ package C;
 endpackage
 
 interface csr_if #();
+    logic          rvalid;
     RV::csr_addr_t raddr; // Read port
-    xlen_t     rdata;
+    xlen_t         rdata;
+    logic          wvalid;
     RV::csr_addr_t waddr; // Write port
-    xlen_t     wdata;
-    logic      wvalid;
+    xlen_t         wdata;
     modport master (
+        output rvalid,
         output raddr,
         input  rdata,
         output waddr,
@@ -595,6 +610,7 @@ interface csr_if #();
         output wvalid
     );
     modport slave (
+        input  rvalid,
         input  raddr,
         output rdata,
         input  waddr,

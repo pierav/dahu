@@ -120,12 +120,24 @@ module fus #() (
         .fuoutput_o_valid(fu_outputs_valids[FU_DIV]),
         .squash_io(squash_io)
     );
+    
+    /* Multiplier */
+    fu_mul fu_mul( 
+        .clk(clk),
+        .rstn(rstn),
+        .fuinput_i(fu_inputs[FU_MUL]),
+        .fuinput_i_valid(fu_inputs_valids[FU_MUL]),
+        .fuinput_i_ready(fu_inputs_readys[FU_MUL]),
+        .fuoutput_o(fu_outputs[FU_MUL]),
+        .fuoutput_o_valid(fu_outputs_valids[FU_MUL]),
+        .squash_io(squash_io)
+    );
 
     /* TODO IMPLEMENT */
     /* FU STUBS */
     always_comb begin
         for (int fu_idx = 0; fu_idx < NB_FU; fu_idx++) begin
-            if(!(fu_t'(fu_idx) inside {FU_ALU, FU_LSU, FU_NONE, FU_DIV})) begin
+            if(!(fu_t'(fu_idx) inside {FU_ALU, FU_LSU, FU_NONE, FU_DIV, FU_MUL})) begin
                 fu_inputs_readys[fu_idx] = '0; // Not ready
                 fu_outputs_valids[fu_idx] = '0; // No results
                 fu_outputs[fu_idx] = '0;
@@ -163,6 +175,12 @@ module fus #() (
     assign fuoutput_o_valid[3] = fu_outputs_valids[FU_DIV];
     assign completion_ports_o[3].id = fuoutput_o[3].id;
     assign completion_ports_o[3].valid = fuoutput_o_valid[3];
+
+
+    assign fuoutput_o[4] = fu_outputs[FU_MUL];
+    assign fuoutput_o_valid[4] = fu_outputs_valids[FU_MUL];
+    assign completion_ports_o[4].id = fuoutput_o[4].id;
+    assign completion_ports_o[4].valid = fuoutput_o_valid[4];
 
     // The others are for stores and branch
     assign completion_ports_o[0 + NR_WB_PORTS] = store_completion;

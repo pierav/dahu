@@ -424,6 +424,8 @@ module iew #() (
     assign rob_push_data_i.needSQfree = di_i.si.fu == FU_LSU &&
                                         di_i.si.op == S; // TODO AMO
     assign rob_push_data_i.fu   = di_i.si.fu;
+    assign rob_push_data_i.is_uop_final = !di_i.is_uop || 
+        (di_i.is_uop && di_i.is_uop_last);
     // assign rob_push_data_i.needBQfree = di_i.si.fu == FU_CTRL;
     // assign rob_push_data_i.needCSRfree = di_i.si.fu == FU_CSR &&
     //     di_i.si.op inside { CSR_WRITE, CSR_SET, CSR_CLEAR };

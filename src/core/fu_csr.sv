@@ -33,8 +33,9 @@ module fu_csr #() (
     /* Read path (All modification are applied after the reg wb) */
     // Performes early read
     xlen_t csr_rdata;
-    assign csr_io.raddr = csr_addr_i;
-    assign csr_rdata    = csr_io.rdata;
+    assign csr_io.rvalid = fuinput_i_valid;
+    assign csr_io.raddr  = csr_addr_i;
+    assign csr_rdata     = csr_io.rdata;
     
     // Write path (save csr in buffer): cannot be speculative
     typedef struct packed {
