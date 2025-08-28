@@ -11,6 +11,7 @@
 
 enum inst_type_t {
     TYPE_MISC,
+    TYPE_CSR,
     TYPE_LOAD,
     TYPE_STORE,
     TYPE_AMO,
@@ -81,12 +82,12 @@ enum inst_type_t {
   /* RV32/RV64 Zifencei Standard Extension */ \
   INST(FENCE_I, 0, 0, TYPE_MISC, 8, "fence.i%c", 0) \
   /* RV32/RV64 Zicsr Standard Extension */ \
-  INST(CSRRC,   1, 1, TYPE_MISC, 8, "csrrc %s, %s, %s", rd(), csr(), rs1()) \
-  INST(CSRRCI,  0, 1, TYPE_MISC, 8, "csrrci %s, %s, %d", rd(), csr(), csr_uimm()) \
-  INST(CSRRS,   1, 1, TYPE_MISC, 8, "csrrs %s, %s, %s", rd(), csr(), rs1()) \
-  INST(CSRRSI,  0, 1, TYPE_MISC, 8, "csrrsi %s, %s, %d", rd(), csr(), csr_uimm()) \
-  INST(CSRRW,   1, 1, TYPE_MISC, 8, "csrrw %s, %s, %s", rd(), csr(), rs1()) \
-  INST(CSRRWI,  0, 1, TYPE_MISC, 8, "csrrwi %s, %s, %d", rd(), csr(), csr_uimm()) \
+  INST(CSRRC,   1, 1, TYPE_CSR,  8, "csrrc %s, %s, %s", rd(), csr(), rs1()) \
+  INST(CSRRCI,  0, 1, TYPE_CSR,  8, "csrrci %s, %s, %d", rd(), csr(), csr_uimm()) \
+  INST(CSRRS,   1, 1, TYPE_CSR,  8, "csrrs %s, %s, %s", rd(), csr(), rs1()) \
+  INST(CSRRSI,  0, 1, TYPE_CSR,  8, "csrrsi %s, %s, %d", rd(), csr(), csr_uimm()) \
+  INST(CSRRW,   1, 1, TYPE_CSR,  8, "csrrw %s, %s, %s", rd(), csr(), rs1()) \
+  INST(CSRRWI,  0, 1, TYPE_CSR,  8, "csrrwi %s, %s, %d", rd(), csr(), csr_uimm()) \
   /* RV32/RV64 M Standard Extension */ \
   INST(MUL,     2, 1, TYPE_ALU,  8, "mul %s, %s, %s", rd(), rs1(), rs2()) \
   INST(MULH,    2, 1, TYPE_ALU,  8, "mulh %s, %s, %s", rd(), rs1(), rs2()) \

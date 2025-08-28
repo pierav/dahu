@@ -24,7 +24,7 @@ module fu_csr #() (
     logic csr_violation_i;
     none_set_t op_i;
     assign is_csr_i = fuinput_i.op inside {CSR_WRITE, CSR_SET, CSR_CLEAR, CSR_READ};
-    assign csr_addr_i = fuinput_i.rs2val[11:0];
+    assign csr_addr_i = fuinput_i.imm[11:0];
     assign csr_wdata_i = fuinput_i.rs1val;
     assign csr_need_write_i = fuinput_i.op inside {CSR_WRITE, CSR_SET, CSR_CLEAR};
     assign csr_violation_i = csr_addr_i.priv_lvl != RV::PRIV_LVL_M; // TODO read csr

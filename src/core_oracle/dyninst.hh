@@ -82,6 +82,14 @@ struct DynamicInst {
         return false;
     }
 
+    bool isCSR(uint64_t &csr) const {
+        assert(si);
+        assert(committed);
+        csr = si->_csr();
+        return si->type == TYPE_CSR;
+    }
+
+
     bool isMemRef(uint64_t &addr) const {
         uint8_t size;
         uint64_t data;

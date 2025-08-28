@@ -133,17 +133,24 @@ void comsim_do_check_commit(DynamicInst &inst){
         int idx = inst.si->_rs2();
         fatal_if (cosim->get_xreg(idx) != inst.rsval[1], "Invalid rs2");
     }
-    
+
     /* Do a cosim step */
     cosim->step1();
 
     if(inst.si->nr_dst){
         int idx = inst.si->_rd();
+        uint64_t csr;
+        if(inst.isCSR(csr) && csr == CSR_MCYCLE){
+            // Fix the cosim time with the RTL time
+            cosim->set_xreg(idx, inst.rdval[0]);
+        }
         fatal_if (cosim->get_xreg(idx) != inst.rdval[0],
             "Invalid rd : expected %016lx, got %016lx",
                 cosim->get_xreg(idx),
                 inst.rdval[0]);
     }
+    
+
     /* Todo check CSR */
 }
 

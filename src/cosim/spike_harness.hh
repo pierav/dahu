@@ -17,4 +17,5 @@ class spike_harness_t {
     public:
     uint64_t get_pc();
     uint64_t get_xreg(int reg);
+    void set_xreg(int reg, uint64_t value);
 };

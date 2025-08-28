@@ -157,6 +157,9 @@ uint64_t spike_harness_t::get_xreg(int reg){
     return proc->get_state()->XPR[reg];
 }
 
+void spike_harness_t::set_xreg(int reg, uint64_t value){
+    proc->get_state()->XPR.write(reg, value);
+}
 
 
 int mainx(int argc, char** argv) {

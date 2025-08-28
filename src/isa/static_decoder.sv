@@ -115,8 +115,11 @@ module static_decoder #() (
         imm = {{XLEN - 12{data_i[31]}}, data_i[31:20]};
       end
       C::TYPE_I_AND_UIMM: begin /* CSR + uimm */
-        imm = {{XLEN - 12{data_i[31]}}, data_i[31:20]};
+        imm = XLEN'(data_i[31:20]);
         use_uimm = 1;
+      end
+      C::TYPE_R_FOR_CSR: begin /* CSR */
+        imm = XLEN'(data_i[31:20]);
       end
       C::TYPE_S: begin
         imm = {{XLEN - 12{data_i[31]}}, data_i[31:25], data_i[11:7]};
