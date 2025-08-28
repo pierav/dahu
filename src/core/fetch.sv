@@ -23,7 +23,6 @@ module fetch #() (
 
     typedef struct packed {
         pc_t pc; // TODO fetch addr
-        logic allocated;
         logic killed;
         bp_t bp;
     } shr_icache_t;
@@ -35,14 +34,27 @@ module fetch #() (
 
     logic emmit_fetch;
     assign emmit_fetch = fetch_addr_ready && fetch_o_ready;
+    logic emmit_fetch_q;
+    xlen_t emmit_fetch_addr_q;
+    always_latch begin
+        if (emmit_fetch) begin
+            emmit_fetch_q = emmit_fetch;
+            emmit_fetch_addr_q = pc_q;
+        end
+    end
     
-    assign outstanding_req_d.pc         = pc_q;
-    assign outstanding_req_d.allocated  = emmit_fetch;
-    assign outstanding_req_d.killed     = squash_io.valid;
-    assign outstanding_req_d.bp         = prediction_0;
+    assign fetch_addr_valid             = emmit_fetch_q;
+    assign fetch_addr                   = emmit_fetch_addr_q;
 
-    assign fetch_addr_valid             = emmit_fetch; // Always req when ready
-    assign fetch_addr                   = pc_q;
+
+    always_comb begin
+        outstanding_req_d           = outstanding_req_q;
+        outstanding_req_d.killed    = squash_io.valid; // Mark killed req
+        if(emmit_fetch) begin
+            outstanding_req_d.pc    = pc_q;
+            outstanding_req_d.bp    = prediction_0;
+        end
+    end
 
     // Compute next pc
     bpred bpred (

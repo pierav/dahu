@@ -70,8 +70,8 @@ module core #() (
 
     // Pipeline stages handle
     /* Fetch -> decode */
-    fetch_data_t if2dec_q, if2dec_d;
-    logic if2dec_valid_q, if2dec_valid_d;
+    // fetch_data_t if2dec_q, if2dec_d;
+    // logic if2dec_valid_q, if2dec_valid_d;
     // Decode -> rename
     di_t dec2ren_di_q, dec2ren_di_d;
     logic dec2ren_di_valid_q, dec2ren_di_valid_d;
@@ -90,8 +90,8 @@ module core #() (
                    execute2wb_fuoutput_valid_d;
 
     // Forward pipe regs input
-    assign if2dec_d = fetch_o;
-    assign if2dec_valid_d = fetch_o_valid;
+    // assign if2dec_d = fetch_o;
+    // assign if2dec_valid_d = fetch_o_valid;
     assign dec2ren_di_d = decode_di_o;
     assign dec2ren_di_valid_d = decode_di_o_valid;
     assign ren2issue_di_d = rename_di_o;
@@ -102,8 +102,8 @@ module core #() (
     assign execute2wb_fuoutput_valid_d = execute_fuoutput_o_valid;
 
     // Forward Stage inputs
-    assign decode_in_i             = if2dec_q;
-    assign decode_in_i_valid       = if2dec_valid_q;
+    assign decode_in_i             = fetch_o; // Take data from cache
+    assign decode_in_i_valid       = fetch_o_valid;
     assign rename_di_i             = dec2ren_di_q; 
     assign rename_di_i_valid       = dec2ren_di_valid_q;
     assign issue_di_i              = ren2issue_di_q;
@@ -117,7 +117,7 @@ module core #() (
     // Use !next_pipe_stage || next_stage_ready
     //        |                  \-- Next stage is going to be bubble
     //        \--------------------- Fill bublle stage
-    assign fetch_o_ready = !if2dec_valid_q || decode_in_i_ready;
+    assign fetch_o_ready = decode_in_i_ready;
     assign decode_di_o_ready = !dec2ren_di_valid_q || rename_di_i_ready;
     assign rename_di_o_ready = !ren2issue_di_valid_q || issue_di_i_ready;
     
@@ -133,16 +133,16 @@ module core #() (
             // ren2issue_di_q <= '0;
         end else begin
             if(squash_io.valid) begin // Simply clear pipeline stages ?
-                if2dec_valid_q <= '0;
+                // if2dec_valid_q <= '0;
                 dec2ren_di_valid_q <= '0;
                 ren2issue_di_valid_q <= '0;
                 issue2execute_fuinput_valid_q <= '0;
                 execute2wb_fuoutput_valid_q <= '0;
             end else begin
-                if(decode_in_i_ready/* && fetch_o_valid*/) begin
-                    if2dec_q <= if2dec_d;
-                    if2dec_valid_q <= if2dec_valid_d;
-                end
+                // if(decode_in_i_ready/* && fetch_o_valid*/) begin
+                //     if2dec_q <= if2dec_d;
+                //     if2dec_valid_q <= if2dec_valid_d;
+                // end
                 if(rename_di_i_ready/* && decode_di_o_valid*/) begin
                     dec2ren_di_q <= dec2ren_di_d;
                     dec2ren_di_valid_q <= dec2ren_di_valid_d;
