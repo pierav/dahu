@@ -88,10 +88,13 @@ module decode #() (
                 if(push_uop) begin
                     uop_extra_q <= decode_si; // Do the jalr after the auipc
                 end
-                uop_extra_valid_q <= push_uop;
+                uop_extra_valid_q <= 
+                    push_uop ? '1 :
+                    di_o_ready ? '0 : uop_extra_valid_q;
             end
         end
     end
+
 
     // uop selection 
     si_t uop_si;
