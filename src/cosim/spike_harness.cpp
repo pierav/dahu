@@ -70,24 +70,11 @@ struct dummy_simif_t : public simif_t {
 };
 
 
-spike_harness_t::spike_harness_t(char *binfile) {
+spike_harness_t::spike_harness_t(std::vector<uint8_t>& memimage) {
     simif = new dummy_simif_t();
-
-    // load binary file
-    std::ifstream bin(binfile, std::ios::binary | std::ios::ate);
-    if (!bin) {
-        std::cerr << "cannot open " << binfile << std::endl;
-    }
-    size_t size = bin.tellg();
-    bin.seekg(0);
-    std::vector<char> buf(size);
-    bin.read(buf.data(), size);
-    const uint8_t* binptr = reinterpret_cast<const uint8_t*>(buf.data());
-    
-    std::cout << "Initialize mem with bin " << binfile << std::endl;
     
     // Write program in memory
-    simif->mmio_store(RAM_BASE, size, binptr);
+    simif->mmio_store(RAM_BASE, memimage.size(), memimage.data());
 
     // Create processor
     proc = new processor_t("RV64IM", "MSU",
@@ -164,16 +151,14 @@ void spike_harness_t::set_xreg(int reg, uint64_t value){
 
 int mainx(int argc, char** argv) {
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " program.bin" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " program.elf" << std::endl;
         return 1;
     }
-
-    spike_harness_t sh(argv[1]);
-
-    // Step instructions
-    for (int i = 0;; i++) {
-        sh.step1();
-    }
+    // spike_harness_t sh(TODO);
+    // // Step instructions
+    // for (int i = 0;; i++) {
+    //     sh.step1();
+    // }
 
     return 0;
 }

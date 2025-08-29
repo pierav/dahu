@@ -2,6 +2,7 @@
 #include "Vsystem___024root.h" // ugly bypass
 #include "verilated.h"
 #include "verilated_vcd_c.h"
+#include "tb/readelf.hh"
 
 #include <iostream>
 #include <cstdint>
@@ -37,7 +38,7 @@ static struct option long_options[] = {
     {"verbose", no_argument,       0, 'v'},
     {"bin",     required_argument, 0, 'b'},
     {"help",    no_argument,       0, 'h'},
-    {"trace",    no_argument,      0, 't'},
+    {"trace",   no_argument,       0, 't'},
     {0, 0, 0, 0} // end marker
 };
 
@@ -74,24 +75,6 @@ int parse_args(int argc, char *argv[], args_t &args) {
 }
 
 
-/* Utils */ 
-size_t readBinaryFile(const std::string& path, char* dst, size_t n) {
-    std::ifstream file(path, std::ios::binary | std::ios::ate); // open at end to get size
-    if (!file) {
-        std::cerr << "Error: Cannot open file '" << path << "'\n";
-        exit(1);
-    }
-    size_t size = file.tellg();
-    if(size > n){
-        std::cerr << "Error: file is too big " 
-                  << size << " > " << n << std::endl;
-    }
-    file.seekg(0, std::ios::beg);
-    file.read(dst, size);
-    return size;
-}
-
-
 using namespace std::chrono;
 
 high_resolution_clock::time_point t_start, t_end;
@@ -109,6 +92,10 @@ void tac(){
 
 char *tb_binfile; // Dirty mechanism to share binfile
 
+#include "cosim/spike_harness.hh"
+
+extern spike_harness_t *cosim; // from handler.cc
+
 int main(int argc, char **argv) {
     std::cout << "*** Hello from tb (src/tb.cpp)" << std::endl;
     
@@ -120,7 +107,11 @@ int main(int argc, char **argv) {
     std::cout << "*** - verilator version: " << VERILATOR_VERSION_INTEGER << std::endl;
 
     // Sanity checks
-  
+    // Parse file 
+    elf_parser_t elfp(args.binfile);
+    std::vector<uint8_t> memimage;
+    elfp.to_memory(memimage);
+
     tic();
     Verilated::commandArgs(argc, argv);
     std::cout << "*** Instanciate top" << std::endl;
@@ -137,6 +128,17 @@ int main(int argc, char **argv) {
         dut->trace(tfp, 99);
         tfp->open(tracing_file);
     }
+
+    std::cout << "*** Instanciate cosimulaor" << std::endl;
+    cosim = new spike_harness_t(memimage);
+
+    // Initialise ram (Safe Copy to cosimulator ram)
+    std::cout << "*** Instanciate ram" << std::endl;
+    char *ram = (char*)RAM_KEY(dut->rootp);
+    assert(memimage.size() <= RAM_SIZE);
+    std::memcpy(ram, memimage.data(), memimage.size());
+
+
     uint64_t cycles = 0;
     // Signals
     bool clk = true;
@@ -147,15 +149,6 @@ int main(int argc, char **argv) {
     // Simulation variables
     const uint64_t MAX_CYCLES = 100000000;  // max cycles to avoid infinite loop
 
-    // Initialise ram
-    std::cout << "*** Instanciate ram" << std::endl;
-    char *ram = (char*)RAM_KEY(dut->rootp);
-    readBinaryFile(args.binfile, ram, RAM_SIZE);
-    tb_binfile = strdup(args.binfile.c_str());// O:
-
-    // for(int i = 0; i < 100; i++){
-    //     ram[i] = i;
-    // }
     std::cout << "*** Run simulation" << std::endl;
 
     for (uint64_t i = 1; i < MAX_CYCLES; i++) {

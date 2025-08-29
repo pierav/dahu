@@ -161,7 +161,7 @@ extern "C" void dpi_monitor_init() {
     std::cout << "*** Hello for dpi (src/core_oracle/handle.cc)" << std::endl;
     inflight[0].id = -1;
     // _out.open("commit.log");
-    cosim = new spike_harness_t(tb_binfile);
+    assert(cosim);
     // for(int i = 0; i < 100; i++){
     //     std::cout << cosim->step1() << std::endl;
     // }

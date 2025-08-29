@@ -11,7 +11,7 @@ class spike_harness_t {
     processor_t *proc;
     
     public:
-    spike_harness_t(char *binfile);
+    spike_harness_t(std::vector<uint8_t>& memimage);
     std::string step1();
 
     public:

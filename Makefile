@@ -8,7 +8,8 @@ SRC := $(PKGS) \
 		$(wildcard src/system/*.sv) \
 		$(wildcard src/utils/*.sv)
 
-SRC_DPI := $(wildcard src/core_oracle/*.cc) \
+SRC_DPI := $(wildcard src/tb/*.cpp) \
+		   $(wildcard src/core_oracle/*.cc) \
 		   $(wildcard src/cosim/*.cpp)
 
 LIB_PATH = $(CURDIR)/src/cosim/riscv-isa-sim/build/lib/pkgconfig
@@ -21,7 +22,7 @@ LDFLAGS :=  $(call pkgconf, --libs $(LIBS))
 
 VERILATOR := verilator/bin/verilator
 		SVFLAGS :=  -Wall -Wpedantic \
-	--cc src/tb.cpp $(SRC_DPI)\
+	--cc $(SRC_DPI)\
 	--CFLAGS "$(CFLAGS) -I$(CURDIR)/src" \
 	--LDFLAGS "$(LDFLAGS)" \
 	--trace \
