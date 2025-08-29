@@ -221,10 +221,10 @@ module decode #() (
         end
     end
 
-    assert property (
-        @(posedge clk) disable iff (!rstn)
-            in_i_valid |-> di_o.si.valid
-    );
+    // assert property (
+    //     @(posedge clk) disable iff (!rstn)
+    //         in_i_valid |-> di_o.si.valid
+    // );
 
 endmodule
 

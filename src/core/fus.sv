@@ -15,7 +15,7 @@ module fus #() (
     // Core   
     input rob_entry_t   retire_entry_i,
     input logic         retire_entry_i_valid,
-    csr_if.master csr_io,
+    csr_if.master    csr_io,
     // From/To BP
     bq_push_if.slave bq_push_io,
     bq_pop_if.bq     bq_pop_io,

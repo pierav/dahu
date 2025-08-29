@@ -164,6 +164,7 @@ module fu_div #(
     assign fuoutput_o.id    = save_q.id;
     assign fuoutput_o.prd   = save_q.prd;
     assign fuoutput_o.rdval = rfinal;
-    assign fuinput_i_ready  = state_q == IDLE;
+    assign fuinput_i_ready  = (state_q == IDLE && !fuinput_i_valid) ||
+                               state_q == DONE; // <=> state_d == IDLE ?
 
 endmodule

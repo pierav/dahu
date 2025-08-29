@@ -222,6 +222,10 @@ package C;
         FU_MUL,  FU_DIV, FU_CSR, FU_FPU
     } fu_t;
 
+    localparam string dump_fu_arr [NB_FU] = '{
+        "FU_NONE", "FU_LSU", "FU_ALU",  "FU_CTRL",
+        "FU_MUL", "FU_DIV", "FU_CSR",  "FU_FPU"
+    };
 
     // Create bit vectors typedef to avoid unpacked bit array
     typedef logic[NB_FU-1:0] fu_bitvector_t;

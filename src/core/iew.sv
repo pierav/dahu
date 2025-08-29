@@ -283,7 +283,7 @@ module iew #() (
     end
     always_ff @(posedge clk) begin
         if(di_i_valid) begin
-            `LOG(IEW, "Issue: (port0) %s: pc %x (sn=%x) %s <- %s%s fu:%x(%s) op:%x",
+            `LOG(IEW, "Issue: (port0) %s: pc %x (sn=%x) %s <- %s%s fu:%s(%s) op:%x",
                 cause,
                 fuinput_o.pc, fuinput_o.id,
                 di_i.si.rd_valid ?
@@ -310,7 +310,7 @@ module iew #() (
                             "",
                     ) : " ",
 
-                fuinput_o.fu, fu_valid ? "READY": "BUZY",
+                dump_fu_arr[fuinput_o.fu], fu_valid ? "READY": "BUZY",
                 fuinput_o.op
             );
         end else begin
