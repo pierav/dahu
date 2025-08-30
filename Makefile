@@ -42,5 +42,21 @@ $(EXEC): $(SRC)
 	mkdir -p $(@D)
 	$(VERILATOR) $(SVFLAGS)
 
+###
+# Compliance
+###
 
+COMPLIANCE_DIR 	  := $(CURDIR)/benchs/RVAT/build
+COMPLIANCE_SIMDIR := $(CURDIR)/simdir
+
+COMPLIANCE_BENCHS := $(shell find $(COMPLIANCE_DIR) -type f)
+COMPLIANCE_RUNS   := $(subst $(COMPLIANCE_DIR), \
+							 $(COMPLIANCE_SIMDIR), \
+							 $(COMPLIANCE_BENCHS:.elf=.run))
+
+$(COMPLIANCE_SIMDIR)/%.run: $(COMPLIANCE_DIR)/%.elf
+	./riscv-isa-sim/spike $<
+	./build/Vsystem -b $< && echo OK || echo FAIL
+
+run_compliance: $(COMPLIANCE_RUNS)
 

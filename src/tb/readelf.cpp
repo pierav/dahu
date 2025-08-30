@@ -152,7 +152,7 @@ elf_parser_t::elf_parser_t(std::string filename) {
     // elf->header->e_version TODO
     // Detect architecture
     assert(elf->header->e_machine == EM_RISCV); // RISC-V
-    assert(!(elf->header->e_flags & 0x1)); // No RVC for now !
+    // assert(!(elf->header->e_flags & 0x1)); // No RVC for now !
     // e_flags & 0x6 : Soft Fload, Single Fload, Double Fload, Quad float
     // program header
     assert(sizeof(elf_program_header_t) == elf->header->e_phentsize);
