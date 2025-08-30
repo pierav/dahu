@@ -57,5 +57,7 @@ package handler_pkg;
         input longint unsigned pc
     );
 
+    import "DPI-C" context function int dpi_is_poweroff();
+    import "DPI-C" context function longint unsigned dpi_exit_code();
 
 endpackage

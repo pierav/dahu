@@ -21,6 +21,27 @@
 
 #define LOG_ALL 0
 
+
+uint64_t good_trap;
+uint64_t bad_trap;
+
+struct poweroff_t {   
+    int end = 0;
+    uint64_t exit_code;
+    void commit(DynamicInst &inst){
+        if(inst.pc == good_trap){
+            end = 1;
+            exit_code = 0;
+        }
+        if(inst.pc == bad_trap){
+            end = 1;
+            exit_code = 0xdead;
+        }
+    }
+} poweroff;
+
+
+
 static std::ostream& out = std::cout;
 static std::ofstream _out;
 
@@ -263,6 +284,7 @@ extern "C" void dpi_instr_commit(int id, uint64_t pc) {
     // Ignore the uop decomposition : only check arch state
     if(!inst.is_uop || (inst.is_uop && inst.is_uop_last)){
         comsim_do_check_commit(inst);
+        poweroff.commit(inst);
     }
     
 }
@@ -290,4 +312,12 @@ extern "C" const char* dpi_inst_get_dump(int id, uint64_t pc){
     tmp = oss.str();
     const char* cstr = tmp.c_str();
     return cstr;
+}
+
+extern "C" int dpi_is_poweroff() {
+    return poweroff.end;
+}
+
+extern "C" uint64_t dpi_exit_code() {
+    return poweroff.exit_code;
 }

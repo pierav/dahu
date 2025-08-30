@@ -188,12 +188,12 @@ void elf_parser_t::fill_symmap(){
         if (elf->shent[j].sh_type == SHT_SYMTAB) {
             uint32_t name_off = shstrtab_e + elf->shent[j].sh_name;
             uint32_t count = elf->shent[j].sh_size / sizeof(elf_sim_t);
-            printf("Symbol table [%s] # %d\n", elf->data + name_off, count);
+            // printf("Symbol table [%s] # %d\n", elf->data + name_off, count);
             for (uint32_t i = 0; i < count; i++) {
                 elf_sim_t *sim = (elf_sim_t *)(elf->data + elf->shent[j].sh_offset) + i;
                 char *sym_name = (char*)elf->data + strtab + sim->st_name;
                 uint64_t addr = sim->st_value;
-                printf("- %20s = %lx\n", sym_name, addr);
+                // printf("- %20s = %lx\n", sym_name, addr);
                 symmap[addr] = sym_name;
             }
         }

@@ -95,6 +95,7 @@ char *tb_binfile; // Dirty mechanism to share binfile
 #include "cosim/spike_harness.hh"
 
 extern spike_harness_t *cosim; // from handler.cc
+extern uint64_t good_trap, bad_trap;
 
 int main(int argc, char **argv) {
     std::cout << "*** Hello from tb (src/tb.cpp)" << std::endl;
@@ -111,6 +112,11 @@ int main(int argc, char **argv) {
     elf_parser_t elfp(args.binfile);
     std::vector<uint8_t> memimage;
     elfp.to_memory(memimage);
+    good_trap = elfp.get_sym_addr("pass");
+    bad_trap = elfp.get_sym_addr("fail");
+    std::cout << "*** ------ poweroff dev:"
+              << " Good trap: " << std::hex << good_trap
+              << " Bad trap:" << bad_trap << std::endl;
 
     tic();
     Verilated::commandArgs(argc, argv);

@@ -21,4 +21,13 @@ class elf_parser_t {
         std::vector<uint8_t>& memimage,
         const std::string& filename = ""
     );
+
+    uint64_t  get_sym_addr(const char *sym) {
+        for (const auto& it: symmap) {
+            if (std::strcmp(sym, it.second) == 0) {
+                return it.first;
+            }
+        }
+        return 0;
+    }
 };

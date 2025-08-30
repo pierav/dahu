@@ -329,12 +329,16 @@ module core #() (
         $display("*** Hello from core (src/core/core.sv)");
         exit_o      = 0;
         exit_code_o = 0;
-
-        repeat (1000000) @(posedge clk);
-        exit_o      = 1;
-        exit_code_o = 42;
     end
 
+    always_ff @(posedge clk) begin
+        if (handler_pkg::dpi_is_poweroff()[0]) begin
+            $display("*** Bye from core exit_code = %x",
+                handler_pkg::dpi_exit_code());
+            exit_o      <= 1;
+            exit_code_o <= handler_pkg::dpi_exit_code(); 
+        end
+    end
     // assert property (valid_decoded_insts)
     //     else $error("Invalid inst");
 

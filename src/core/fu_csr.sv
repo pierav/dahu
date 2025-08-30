@@ -36,7 +36,7 @@ module fu_csr #() (
     assign csr_io.rvalid = fuinput_i_valid && is_csr_i;
     assign csr_io.raddr  = csr_addr_i;
     assign csr_rdata     = csr_io.rdata;
-    
+
     // Write path (save csr in buffer): cannot be speculative
     typedef struct packed {
         id_t id;
