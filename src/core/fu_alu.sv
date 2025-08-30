@@ -15,7 +15,7 @@ module fu_alu #() (
     assign opb64 = fuinput_i.rs2val;
     assign opa32 = opa64[32-1:0];
     assign opb32 = opb64[32-1:0];
-    assign shift_amt = fuinput_i.imm[5:0];
+    assign shift_amt = fuinput_i.rs2val[5:0];
     
     /*** Generic adder ***/
     logic negate;
@@ -26,6 +26,7 @@ module fu_alu #() (
     logic needneg;
     logic adder_isneg;
     logic adder_islt;
+    logic slt_res_signed, slt_res_unsigned; // sign bit
     // First layer: conditioning (0 for cmp, 1 for substraction)
     assign needneg              = fuinput_i.op inside {SUB, SLT, SLTU};
     assign adder_opa            = {1'b0, opa64, 1'b1};
@@ -37,15 +38,13 @@ module fu_alu #() (
     assign adder_res32sext      = {{XLEN - 32{adder_res32[31]}}, adder_res32};
     // Last layer: uncondition + sext
     assign adder_final_result   = isword ? adder_res32sext : adder_res64;
-    logic slt_res_signed        = adder_res64[XLEN-1]; // sign bit
     assign slt_res_signed = (opa64[XLEN-1] != opb64[XLEN-1]) ?
-        opa64[XLEN-1] :      // if signs differ: result = sign of opa
-        adder_res64[XLEN-1]; // else: result = sign of (opa - opb)
-
-    logic slt_res_unsigned      = adder_res66[XLEN+1]; // carry-out
+                            opa64[XLEN-1] :      // if signs differ: result = sign of opa
+                            adder_res64[XLEN-1]; // else: result = sign of (opa - opb)
+    assign slt_res_unsigned     = adder_res66[XLEN+1]; // carry-out
 
     /*** Barrel shifter ***/
-    logic[XLEN-1:0] res64, res32sext, shifter_final_result;
+    logic[XLEN-1:0] res64, shifter_final_result;
     logic[32-1:0]   res32;
     logic[XLEN-1:0] opa64_rev, shift_opa64, shift_res64, shift_res64_rev;
     logic[32-1:0]   opa32_rev, shift_opa32, shift_res32, shift_res32_rev;
@@ -61,8 +60,8 @@ module fu_alu #() (
     assign shift_opa64          = shift_l ? opa64_rev : opa64;
     assign shift_opa32          = shift_l ? opa32_rev : opa32;
     // Add an extra bit to sign extend
-    assign shift_opa65          = {shift_a & shift_opa64[XLEN-1], shift_opa64};
-    assign shift_opa33          = {shift_a & shift_opa32[32-1], shift_opa32};
+    assign shift_opa65          = {shift_a && shift_opa64[XLEN-1], shift_opa64};
+    assign shift_opa33          = {shift_a && shift_opa32[32-1], shift_opa32};
     // Mid layers : perform the shift  
     assign shift_res65          = $unsigned($signed(shift_opa65) >>> shift_amt[5:0]);
     assign shift_res33          = $unsigned($signed(shift_opa33) >>> shift_amt[4:0]);
@@ -73,8 +72,7 @@ module fu_alu #() (
     assign shift_res32_rev      = {<<{shift_res32}};
     assign res64                = shift_l ? shift_res64_rev : shift_res64;
     assign res32                = shift_l ? shift_res32_rev : shift_res32;
-    assign res32sext            = {{XLEN - 32{res32[31]}}, res32};
-    assign shifter_final_result = isword ? res32sext : res64;
+    assign shifter_final_result = isword ? sext32to64(res32) : res64;
 
     // TODO assert not shift_l and shift_a
 
