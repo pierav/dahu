@@ -152,20 +152,23 @@ module static_decoder #() (
                                  C::TYPE_S, C::TYPE_B, C::TYPE_R_FOR_CSR};
   assign rs2v = fuop.fmt inside {C::TYPE_R, C::TYPE_S, C::TYPE_B};
   assign rdv  = fuop.fmt inside {C::TYPE_R, C::TYPE_I, C::TYPE_U,
-                                 C::TYPE_J, C::TYPE_SHAMT, C::TYPE_R_FOR_CSR} &&
-                rd != 0; // Handle the risc-v x0 hardwired to 0
-  // TODO handle special case : shamt and uimm
-
+                                 C::TYPE_J, C::TYPE_SHAMT, C::TYPE_R_FOR_CSR};
+  logic is_not_hint;
+  assign is_not_hint = !(rdv && rd == 0 && fuop.fu inside {FU_ALU, FU_MUL, FU_DIV});
+  // In case of hint the instruction is converted to 1 cycle latency xor.
+  // this avoids multiple WB of the same preg in the same cycle.
+  // TODO: mv it to completion and not wb port ?
+  // TODO: can we invalidate operands valid ?
   assign si_o.pc          = pc_i;
   assign si_o.tinst       = data_i;
-  assign si_o.fu          = fuop.fu;
-  assign si_o.op          = fuop.op;
+  assign si_o.fu          = is_not_hint ? fuop.fu : FU_ALU;
+  assign si_o.op          = is_not_hint ? fuop.op : XOR;
   assign si_o.rs1         = rs1;
   assign si_o.rs2         = rs2;
   assign si_o.rd          = rd;
-  assign si_o.rs1_valid   = rs1v;
+  assign si_o.rs1_valid   = rs1v; // hints Waits for operands ?
   assign si_o.rs2_valid   = rs2v;
-  assign si_o.rd_valid    = rdv;
+  assign si_o.rd_valid    = is_not_hint ? rdv && rd != 0 : '0; // Ignore rd == zero
   assign si_o.imm         = imm;
   assign si_o.use_uimm    = use_uimm; // need use_pc ?
   assign si_o.size        = fuop.size;

@@ -148,11 +148,19 @@ void comsim_do_check_commit(DynamicInst &inst){
     // Check sources
     if(inst.si->nr_src >= 1){
         int idx = inst.si->_rs1();
-        fatal_if (cosim->get_xreg(idx) != inst.rsval[0], "Invalid rs1");
+        fatal_if (cosim->get_xreg(idx) != inst.rsval[0],
+            "Invalid rs1 : expected %016lx, got %016lx (%s)",
+                cosim->get_xreg(idx),
+                inst.rsval[0],
+                inst.str());
     }
     if(inst.si->nr_src >= 2){
         int idx = inst.si->_rs2();
-        fatal_if (cosim->get_xreg(idx) != inst.rsval[1], "Invalid rs2");
+        fatal_if (cosim->get_xreg(idx) != inst.rsval[1],
+            "Invalid rs2 : expected %016lx, got %016lx (%s)",
+                cosim->get_xreg(idx),
+                inst.rsval[1],
+                inst.str());
     }
 
     /* Do a cosim step */
