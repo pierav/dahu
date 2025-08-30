@@ -38,6 +38,10 @@ module fu_alu #() (
     // Last layer: uncondition + sext
     assign adder_final_result   = isword ? adder_res32sext : adder_res64;
     logic slt_res_signed        = adder_res64[XLEN-1]; // sign bit
+    assign slt_res_signed = (opa64[XLEN-1] != opb64[XLEN-1]) ?
+        opa64[XLEN-1] :      // if signs differ: result = sign of opa
+        adder_res64[XLEN-1]; // else: result = sign of (opa - opb)
+
     logic slt_res_unsigned      = adder_res66[XLEN+1]; // carry-out
 
     /*** Barrel shifter ***/

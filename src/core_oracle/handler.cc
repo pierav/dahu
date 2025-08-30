@@ -169,9 +169,10 @@ void comsim_do_check_commit(DynamicInst &inst){
             cosim->set_xreg(idx, inst.rdval[0]);
         }
         fatal_if (cosim->get_xreg(idx) != inst.rdval[0],
-            "Invalid rd : expected %016lx, got %016lx",
+            "Invalid rd : expected %016lx, got %016lx (%s)",
                 cosim->get_xreg(idx),
-                inst.rdval[0]);
+                inst.rdval[0],
+                inst.str());
     }
     
 
