@@ -138,7 +138,7 @@ module decode #() (
         .clk(clk),
         .rstn(rstn),
         .si_i(uop_si),
-        .fs_i(RV::Initial),
+        .fs_i(RV::XS_OFF),
         .priv_lvl_i(RV::PRIV_LVL_M),
         .frm_i(3'b0),
         .tvm_i(1'b0),

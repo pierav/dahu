@@ -33,7 +33,7 @@ module fu_csr #() (
     /* Read path (All modification are applied after the reg wb) */
     // Performes early read
     xlen_t csr_rdata;
-    assign csr_io.rvalid = fuinput_i_valid;
+    assign csr_io.rvalid = fuinput_i_valid && is_csr_i;
     assign csr_io.raddr  = csr_addr_i;
     assign csr_rdata     = csr_io.rdata;
     
@@ -57,7 +57,8 @@ module fu_csr #() (
                         op_i == CSR_CLEAR ? (~csr_wdata_i) & csr_rdata :
                         '0;
     logic csrq_pop;
-    assign csrq_pop = retire_entry_i_valid && 
+    assign csrq_pop = retire_entry_i_valid &&
+                      csrq[0].valid &&
                       csrq[0].id == retire_entry_i.id;
     always_ff @(posedge clk) begin
         if (!rstn) begin
@@ -73,6 +74,19 @@ module fu_csr #() (
                     csrq[0].valid <= '0;
                 end
             end
+        end
+    end
+
+    always_comb begin
+        if (fuinput_i_valid) begin
+            unique case(op_i)
+                CSR_WRITE, CSR_READ, CSR_SET, CSR_CLEAR:; // Already done
+                MRET, SRET, DRET: $error("TODO (M|S|D)RET");
+                ECALL, EBREAK: $error("TODO e(call|break)");
+                WFI: $error("TODO");
+                FENCE:; /* Ignore for now */
+                FENCE_I, FENCE_VMA: $error("TODO");
+            endcase
         end
     end
 

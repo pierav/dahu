@@ -37,7 +37,7 @@ module dynamic_decoder_fault #() (
     /* check TVM flag */
     if(si_i.op == C::FENCE_VMA && priv_lvl_i == RV::PRIV_LVL_S && tvm_i) isfault = 1;
     /* FPU must be active */
-    if(si_i.fu == C::FU_FPU && fs_i != RV::Off) isfault = 1;
+    if(si_i.fu == C::FU_FPU && fs_i != RV::XS_OFF) isfault = 1;
     /* FPU: check rounding mode */
     // TODO
   end

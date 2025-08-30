@@ -267,10 +267,10 @@ package RV;
 
     // Encoding of FS[1:0], VS[1:0], and XS[1:0] status fields
     typedef enum logic [1:0] {
-        Off     = 2'b00, // All off
-        Initial = 2'b01, // None dirty or clean, some on
-        Clean   = 2'b10, // None dirty, some clean
-        Dirty   = 2'b11  // Some dirty
+        XS_OFF     = 2'b00, // All off
+        XS_INITIAL = 2'b01, // None dirty or clean, some on
+        XS_CLEAN   = 2'b10, // None dirty, some clean
+        XS_DIRTY   = 2'b11  // Some dirty
     } xs_t;
 
     typedef struct packed {
