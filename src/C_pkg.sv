@@ -316,8 +316,8 @@ package C;
     parameter fuop_t I_SRAIW  = {FU_ALU,    SRA,    SIZE_W, TYPE_SHAMT};
     parameter fuop_t I_ADDW   = {FU_ALU,    ADD,    SIZE_W, TYPE_R};
     parameter fuop_t I_SUBW   = {FU_ALU,    SUB,    SIZE_W, TYPE_R};
-    parameter fuop_t I_SLLW   = {FU_ALU,    SRL,    SIZE_W, TYPE_R};
-    parameter fuop_t I_SRLW   = {FU_ALU,    SRA,    SIZE_W, TYPE_R};
+    parameter fuop_t I_SLLW   = {FU_ALU,    SLL,    SIZE_W, TYPE_R};
+    parameter fuop_t I_SRLW   = {FU_ALU,    SRL,    SIZE_W, TYPE_R};
     parameter fuop_t I_SRAW   = {FU_ALU,    SRA,    SIZE_W, TYPE_R};
 
     /* RV32/RV64 Zifencei Standard Extension */
