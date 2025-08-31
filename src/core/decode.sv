@@ -37,14 +37,31 @@ module decode #() (
      * OUTPUT:
      *      1) auipc rd, 4
      *      2) j[r] rd, [imm|rs1]
+     *
+     * When decomposing into multiple µops,
+     * pass the captured source mappings of the original instruction
+     * to the first generated uop.
+     *
+     * For JALR:
+     * -  Save prs1 at AUIPC rename entry.
+     * -  Attach oldprs1 to the branch µop,
+     *    even if the RMT has been updated in the meantime.
+     *
+     * This avoids dependence on exact RMT update timing.
      */
+
+    RV::utype_t auipccode;
+    always_comb begin
+        auipccode = 32'h00004097; // auipc ra, 4 :) (A bit hacky...)
+        auipccode.rd = decode_si.rd;
+    end
     si_t uop_extra_q, conv_uop_0;
     logic uop_extra_valid_q, uop_extra_valid_d;
     assign conv_uop_0.pc       = decode_si.pc;
-    assign conv_uop_0.tinst    = 32'h00004097; // auipc ra, 4 :) (A bit hacky...)
+    assign conv_uop_0.tinst    = auipccode;
     assign conv_uop_0.fu       = FU_ALU;
     assign conv_uop_0.op       = AUIPC;
-    assign conv_uop_0.rs1      = '0;
+    assign conv_uop_0.rs1      = decode_si.rs1; // Force valid read of the RMT
     assign conv_uop_0.rs1_valid= '0;
     assign conv_uop_0.rs2      = '0;
     assign conv_uop_0.rs2_valid= '0;

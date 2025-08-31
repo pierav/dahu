@@ -193,7 +193,16 @@ module rename #() (
     /* RMT <-> Rename */ // TODO care rs1 valid ?
     assign rmt_read_id[0] = di_i.si.rs1;
     assign rmt_read_id[1] = di_i.si.rs2;
-    
+
+    /* Save mechanish for uop */
+    preg_id_t last_rs1_q;
+    logic last_rs1_valid_q;
+    always_ff @(posedge clk) begin
+        if(di_i_valid && di_i.is_uop && !di_i.is_uop_last) begin
+            last_rs1_q <= rmt_reads[0];
+            last_rs1_valid_q <= rmt_reads_valid[0];
+        end
+    end
     /* Final output */
     always_comb begin : output_inst
         di_o                 = di_i; // Copy everytging !
@@ -202,6 +211,10 @@ module rename #() (
         di_o.prs2            = rmt_reads[1];
         di_o.prs2_renammed   = rmt_reads_valid[1];
         di_o.prd             = allocated_preg;
+         if(di_i.is_uop && di_i.is_uop_last) begin // Take saved one
+            di_o.prs1           = last_rs1_q;
+            di_o.prs1_renammed  = last_rs1_valid_q;
+        end
     end
     logic stall;
     assign stall = di_i_valid && di_i.si.rd_valid && !can_allocate;
