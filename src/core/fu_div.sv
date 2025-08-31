@@ -157,10 +157,7 @@ module fu_div #(
                 REMU: rfinal = rem_q;
             endcase
         end
-        if(isword_q) begin
-            rfinal = ext32to64(rfinal[32-1:0], 
-                op_q inside {DIV, REM});
-        end
+        rfinal = isword_q ? sext32to64(rfinal[32-1:0]) : rfinal;
     end
 
     // outputs
