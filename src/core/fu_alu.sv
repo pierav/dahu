@@ -41,8 +41,8 @@ module fu_alu #() (
     assign slt_res_signed = (opa64[XLEN-1] != opb64[XLEN-1]) ?
                             opa64[XLEN-1] :      // if signs differ: result = sign of opa
                             adder_res64[XLEN-1]; // else: result = sign of (opa - opb)
-    assign slt_res_unsigned     = adder_res66[XLEN+1]; // carry-out
-
+    assign slt_res_unsigned = adder_res66[XLEN+1]; // carry-out
+    
     /*** Barrel shifter ***/
     logic[XLEN-1:0] res64, shifter_final_result;
     logic[32-1:0]   res32;
