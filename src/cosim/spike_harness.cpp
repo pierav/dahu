@@ -19,17 +19,16 @@
 
 #define MYISA "rv64imafd"
 #define RAM_BASE DRAM_BASE
-#define RAM_SIZE (1 << 20)
 
 struct dummy_simif_t : public simif_t {
     cfg_t cfg;
     bus_t bus;
     std::map<size_t, processor_t*> harts;
 
-    dummy_simif_t(size_t nprocs = 1) {
+    dummy_simif_t(size_t ram_size, size_t nprocs=1) {
         cfg.isa  = MYISA;
         cfg.priv = DEFAULT_PRIV;
-        mem_t* ram = new mem_t(RAM_SIZE);
+        mem_t* ram = new mem_t(ram_size);
         clint_t* clint = new clint_t(this, 10000000 /*10 MHz*/, false);
         plic_t* plic = new plic_t(this, 1024);
         ns16550_t* uart = new ns16550_t(plic, 1, 0, 1);
@@ -70,8 +69,8 @@ struct dummy_simif_t : public simif_t {
 };
 
 
-spike_harness_t::spike_harness_t(std::vector<uint8_t>& memimage) {
-    simif = new dummy_simif_t();
+spike_harness_t::spike_harness_t(std::vector<uint8_t>& memimage, size_t ram_size) {
+    simif = new dummy_simif_t(ram_size);
     
     // Write program in memory
     simif->mmio_store(RAM_BASE, memimage.size(), memimage.data());

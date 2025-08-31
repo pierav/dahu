@@ -499,7 +499,7 @@ package C;
 
 
     /* address ranges and attributes */
-    parameter int MEM_ADDR_WIDTH = 20;
+    parameter int MEM_ADDR_WIDTH = 25;
     parameter xlen_t RANGES_MEM_SIZE = 1 << MEM_ADDR_WIDTH;
     parameter xlen_t RANGES_MEM_BASE = 64'h8000_0000;
     parameter xlen_t RANGES_MEM_END = RANGES_MEM_BASE + RANGES_MEM_SIZE;

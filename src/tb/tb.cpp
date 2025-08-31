@@ -11,7 +11,8 @@
 #include <fstream>
 
 #define RAM_KEY(root) ((void*)root->system__DOT__simram__DOT__mem.m_storage)
-#define RAM_SIZE (1 << 20)
+#define RAM_SIZE (1 << (20+5))
+// 32 MB for now
 
 struct args_t {
     bool verbose = false;
@@ -112,6 +113,7 @@ int main(int argc, char **argv) {
     elf_parser_t elfp(args.binfile);
     std::vector<uint8_t> memimage;
     elfp.to_memory(memimage);
+    assert(memimage.size() <= RAM_SIZE);
     good_trap = elfp.get_sym_addr("pass");
     bad_trap = elfp.get_sym_addr("fail");
     std::cout << "*** ------ poweroff dev:"
@@ -136,12 +138,11 @@ int main(int argc, char **argv) {
     }
 
     std::cout << "*** Instanciate cosimulaor" << std::endl;
-    cosim = new spike_harness_t(memimage);
+    cosim = new spike_harness_t(memimage, RAM_SIZE);
 
     // Initialise ram (Safe Copy to cosimulator ram)
     std::cout << "*** Instanciate ram" << std::endl;
     char *ram = (char*)RAM_KEY(dut->rootp);
-    assert(memimage.size() <= RAM_SIZE);
     std::memcpy(ram, memimage.data(), memimage.size());
 
 

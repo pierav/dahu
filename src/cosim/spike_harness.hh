@@ -11,7 +11,7 @@ class spike_harness_t {
     processor_t *proc;
     
     public:
-    spike_harness_t(std::vector<uint8_t>& memimage);
+    spike_harness_t(std::vector<uint8_t>& memimage, size_t ram_size);
     std::string step1();
 
     public:
