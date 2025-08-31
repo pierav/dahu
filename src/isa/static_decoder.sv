@@ -155,14 +155,14 @@ module static_decoder #() (
                                  C::TYPE_J, C::TYPE_SHAMT, C::TYPE_R_FOR_CSR};
   logic is_not_hint;
   assign is_not_hint = !(rdv && rd == 0 && fuop.fu inside {FU_ALU, FU_MUL, FU_DIV});
-  // In case of hint the instruction is converted to 1 cycle latency xor.
-  // this avoids multiple WB of the same preg in the same cycle.
-  // TODO: mv it to completion and not wb port ?
+  // In case of hint the instruction is converted to 1 cycle latency NOP
+  // this avoids multiple WB of the same P(reg) in the same cycle.
+  // We mv it to completion and not wb port
   // TODO: can we invalidate operands valid ?
   assign si_o.pc          = pc_i;
   assign si_o.tinst       = data_i;
-  assign si_o.fu          = is_not_hint ? fuop.fu : FU_ALU;
-  assign si_o.op          = is_not_hint ? fuop.op : XOR;
+  assign si_o.fu          = is_not_hint ? fuop.fu : FU_NONE;
+  assign si_o.op          = is_not_hint ? fuop.op : NOP_OR_HINT;
   assign si_o.rs1         = rs1;
   assign si_o.rs2         = rs2;
   assign si_o.rd          = rd;

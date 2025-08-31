@@ -162,6 +162,7 @@ package C;
 
     parameter NB_BITS_FU_OP = 5;
     typedef enum logic [NB_BITS_FU_OP-1:0] {
+        NOP_OR_HINT,
         MRET, SRET, DRET,
         ECALL, EBREAK,
         WFI,

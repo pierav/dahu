@@ -86,6 +86,7 @@ module fu_csr #() (
                 WFI: $error("TODO");
                 FENCE:; /* Ignore for now */
                 FENCE_I, FENCE_VMA: $error("TODO");
+                NOP_OR_HINT:; /* Juste a nop */
             endcase
         end
     end

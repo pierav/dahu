@@ -15,8 +15,8 @@ module fu_div #(
     squash_if.slave              squash_io
 );
 
-    parameter logic [WIDTH-1:0] DIV_INT_MIN = (1 << (WIDTH-1));
-    parameter logic [WIDTH-1:0] DIV_INT_M1 = '1;
+    localparam logic [WIDTH-1:0] INT_MIN = {1'b1, {WIDTH-1{1'b0}}};
+    localparam logic [WIDTH-1:0] ALL_ONES = {WIDTH{1'b1}}; // -1
     
     typedef enum logic [1:0] {IDLE, RUN, DONE} state_e;
 
@@ -71,22 +71,27 @@ module fu_div #(
                         // Handle corner cases here
                         if (b == '0) begin
                             unique case (fuinput_i.op.div)
-                                DIV, DIVU: result_q <= '1; // -1
+                                DIV, DIVU: result_q <= ALL_ONES; // -1
                                 REM, REMU: result_q <= a;
                             endcase
                             result_fast_valid_q <= 1'b1;
                             state_q <= DONE;
-                        end else if ((fuinput_i.op == DIV) &&
-                                     (a == DIV_INT_MIN) &&
-                                     (b == DIV_INT_M1)) begin
-                            // signed overflow: INT_MIN / -1
-                            result_q            <= '1;
+                        end else if ((fuinput_i.op.div == DIV) &&
+                                     (a == INT_MIN) &&
+                                     (b == ALL_ONES)) begin
+                            result_q            <= INT_MIN; // signed overflow: INT_MIN / -1
                             result_fast_valid_q <= 1'b1;
-                            state_q        <= DONE;
+                            state_q             <= DONE;
+                        end else if ((fuinput_i.op.div == REM) && 
+                                     (a == INT_MIN) &&
+                                     (b == ALL_ONES)) begin
+                            result_q            <= '0; // REM overflow case -> 0
+                            result_fast_valid_q <= 1'b1;
+                            state_q             <= DONE;
                         end else begin
                             neg_a_q    <= a[WIDTH-1];
                             neg_b_q    <= b[WIDTH-1];
-                            if (fuinput_i.op == DIV || fuinput_i.op == REM) begin
+                            if (is_signed_i) begin
                                 // signed: take absolute values
                                 dividend_q <= a[WIDTH-1] ? (~a + 1) : a;
                                 divisor_q  <= b[WIDTH-1] ? (~b + 1) : b;
