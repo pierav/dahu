@@ -264,6 +264,7 @@ module core #() (
         .retire_entry_i_valid(retire_entry_valid)
     );
 
+    `ifndef SYNTHESIS
     initial begin
         handler_pkg::dpi_monitor_init();
     end
@@ -324,13 +325,15 @@ module core #() (
         
         handler_pkg::dpi_tick();
     end
- 
+    `endif
+
     initial begin
         $display("*** Hello from core (src/core/core.sv)");
         exit_o      = 0;
         exit_code_o = 0;
     end
 
+    `ifndef SYNTHESIS
     always_ff @(posedge clk) begin
         if (handler_pkg::dpi_is_poweroff()[0]) begin
             $display("*** Bye from core exit_code = %x",
@@ -339,6 +342,7 @@ module core #() (
             exit_code_o <= handler_pkg::dpi_exit_code(); 
         end
     end
+    `endif
     // assert property (valid_decoded_insts)
     //     else $error("Invalid inst");
 

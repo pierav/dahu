@@ -222,7 +222,7 @@ module decode #() (
     // logic stall;
     // assign stall = 
     /* Ready valid */
-
+    `ifndef SYNTHESIS
     always_ff @(posedge clk) begin
         if(!di_o_ready) begin
             `LOG(DEC, "Decode: (port0) next stage not ready");
@@ -240,7 +240,7 @@ module decode #() (
                 uop_extra_valid_q ? "Use UOP1": "");
         end
     end
-
+    `endif
     // assert property (
     //     @(posedge clk) disable iff (!rstn)
     //         in_i_valid |-> di_o.si.valid

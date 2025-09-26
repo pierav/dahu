@@ -7,9 +7,15 @@
 #------------------------------------------------------
 
 set PERIOD 10
-set DESIGN_NAME regfile
+set DESIGN_NAME core
 #TARGET_LIBRARY_FILES
 set TLF [getenv TLF]
+# set rtl_files [read_file ../synth.flist]
+set fp [open "../synth.flist" r]
+set rtl_files [split [read $fp] "\n"]
+close $fp
+
+puts $rtl_files
 
 # gtech.db
 
@@ -43,14 +49,28 @@ sh mkdir work
 define_design_lib dahulib -path work
 
 # Build project
-analyze -f sverilog -lib dahulib ../src/core/regfile.sv
+
+analyze -f sverilog -lib dahulib $rtl_files
+# ../src/core/regfile.sv
+# $rtl_files
 elaborate ${DESIGN_NAME} -library dahulib
-elaborate regfile -library dahulib
+
+# Cells do not drive (LINT-1)
+set_message_suppress LINT-1
+# set_message_info -id LINT-1 -new_severity INFORMATION
+# Unconnected ports (LINT-28)
+set_message_suppress LINT-28
+# set_message_info -id LINT-28 -new_severity INFORMATION
+
+# check_design
+report_message_info -all
+get_lint_summary
+report_lint -all
 
 uniquify
 link
 
-check_design -summary > check_design.x
+check_design -summary
 
 #------------------------------------------------------
 #  Clock and timing constraints

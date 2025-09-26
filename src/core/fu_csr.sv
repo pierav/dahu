@@ -81,11 +81,27 @@ module fu_csr #() (
         if (fuinput_i_valid) begin
             unique case(op_i)
                 CSR_WRITE, CSR_READ, CSR_SET, CSR_CLEAR:; // Already done
-                MRET, SRET, DRET: $error("TODO (M|S|D)RET");
-                ECALL, EBREAK: $error("TODO e(call|break)");
-                WFI: $error("TODO");
+                MRET, SRET, DRET:
+                `ifndef SYNTHESIS
+                    $error("TODO (M|S|D)RET")
+                `endif
+                ;
+                ECALL, EBREAK: 
+                `ifndef SYNTHESIS
+                    $error("TODO e(call|break)")
+                `endif
+                ;
+                WFI: 
+                `ifndef SYNTHESIS
+                    $error("TODO")
+                `endif
+                ;
                 FENCE:; /* Ignore for now */
-                FENCE_I, FENCE_VMA: $error("TODO");
+                FENCE_I, FENCE_VMA:
+                `ifndef SYNTHESIS
+                    $error("TODO")
+                `endif
+                ;
                 NOP_OR_HINT:; /* Juste a nop */
             endcase
         end

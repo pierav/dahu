@@ -53,6 +53,7 @@ module rename #() (
     assign rmt_reads_valid[1] = rmt_valid[rmt_read_id[1]];
     areg_id_t old_areg;
     preg_id_t old_preg;
+    areg_id_t areg;
     // write port
     always_ff @(posedge clk) begin
         if(!rstn) begin
@@ -69,7 +70,7 @@ module rename #() (
                     // old_preg <= rmt[old_areg];
                     // TODO no broadcast
                     for(int i = 0; i < ARFSIZE; i++) begin
-                        areg_id_t areg = areg_id_t'(i);
+                        areg = areg_id_t'(i);
                         if (rmt[areg] == rmt_write) begin
                             rmt_valid[areg] <= '0;
                         end
@@ -91,6 +92,7 @@ module rename #() (
         end
     end
 
+    `ifndef SYNTHESIS
     string str;
     always_comb begin
         str = "Rename RMT: [";
@@ -118,6 +120,7 @@ module rename #() (
         // end
         // $write("]");
     end
+    `endif
 
     /* Allocator (for now use a counter) */
     logic allocate;             // input
@@ -142,7 +145,9 @@ module rename #() (
         // TODO 0 cycle release->alloc
         if(free_valid) begin
             // TODO check free ID
+            `ifndef SYNTHESIS
             $asserton(free_prd == (counter_q + inflights_q));
+            `endif
             inflights_d = inflights_d - 1;
         end
     end
@@ -221,7 +226,8 @@ module rename #() (
     /* Ready valid */
     assign di_i_ready = di_o_ready && !stall;
     assign di_o_valid = di_i_valid && !stall; // TODO clked
-   
+
+    `ifndef SYNTHESIS
     string cause;
     always_comb begin
         cause = "";
@@ -254,6 +260,6 @@ module rename #() (
             );
         end
     end
-
+    `endif
 endmodule
 

@@ -135,15 +135,10 @@ module fus #() (
 
     /* TODO IMPLEMENT */
     /* FU STUBS */
-    always_comb begin
-        for (int fu_idx = 0; fu_idx < NB_FU; fu_idx++) begin
-            if(!(fu_t'(fu_idx) inside {FU_ALU, FU_LSU, FU_NONE, FU_DIV, FU_MUL})) begin
-                fu_inputs_readys[fu_idx] = '0; // Not ready
-                fu_outputs_valids[fu_idx] = '0; // No results
-                fu_outputs[fu_idx] = '0;
-            end
-        end
-    end
+    assign fu_inputs_readys[FU_FPU] = '0; // Not ready
+    assign fu_outputs_valids[FU_FPU] = '0; // No results
+    assign fu_outputs[FU_FPU] = '0;
+
     /* Write back */
     // How do we handle multiple write-backs? (FU)
     // -1) 1 port per group (reduce drasticly the performance)

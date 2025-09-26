@@ -20,6 +20,7 @@ package C;
     // Runtime-configurable log settings
     int log_mask = 0; // disable all by default
 
+    `ifndef SYNTHESIS
     function bit contains(string haystack, string needle);
         for (int i = 0; i <= haystack.len() - needle.len(); i++) begin
             if (haystack.substr(i, i + needle.len() - 1) == needle) begin
@@ -59,14 +60,16 @@ package C;
         end
         $display("Selected flags: %b", log_mask);
     endtask
+    `endif
 
     `define _LOG_BASE(src, str) \
-        if ((log_mask & LOG_``src) != 0) \
-            $display(str)
+        if ((log_mask & LOG_``src) != 0) begin \
+            $display(str) \
+        end
 
     // Some fun
     `define DELIM
-    `define LOG(src, p0, p1=ELIM, p2=ELIM, p3=ELIM, p4=ELIM, p5=ELIM,
+    `define LOG(src, p0, p1=ELIM, p2=ELIM, p3=ELIM, p4=ELIM, p5=ELIM, \
                 p6=ELIM, p7=ELIM, p8=ELIM, p9=ELIM, p10=ELIM) \
     `ifdef D``p1 \
     `_LOG_BASE(src, $sformatf(p0)); \
@@ -118,29 +121,29 @@ package C;
     //     `LOG(COMMIT, "Hello from logger without args");
     // end
 
-    parameter int XLEN = 64;
+    localparam int XLEN = 64;
     // Register related
-    parameter int AREG_ID_BITS = 5; // RISC-V constant
-    parameter int PREG_ID_BITS = 4; // User defined
-    parameter int PRFSIZE = 1 << PREG_ID_BITS;
-    parameter int ARFSIZE = 1 << AREG_ID_BITS;
+    localparam int AREG_ID_BITS = 5; // RISC-V constant
+    localparam int PREG_ID_BITS = 4; // User defined
+    localparam int PRFSIZE = 1 << PREG_ID_BITS;
+    localparam int ARFSIZE = 1 << AREG_ID_BITS;
     // Pipe width
-    parameter int NR_ISSUE_PORTS = 1;
-    parameter int NR_WB_PORTS = 5;
-    parameter int NR_COMPL_PORTS = NR_WB_PORTS + 2; // Completion ports
-    parameter int NR_COMMIT_PORTS = 1;
-    parameter int NR_ISSUE_PRF_READ_PORTS = NR_ISSUE_PORTS * 2; // TODO FMA
+    localparam int NR_ISSUE_PORTS = 1;
+    localparam int NR_WB_PORTS = 5;
+    localparam int NR_COMPL_PORTS = NR_WB_PORTS + 2; // Completion ports
+    localparam int NR_COMMIT_PORTS = 1;
+    localparam int NR_ISSUE_PRF_READ_PORTS = NR_ISSUE_PORTS * 2; // TODO FMA
     // Number of inflight instructions related
-    parameter int ID_BITS = 20; // TDB accordingly with max inflights
+    localparam int ID_BITS = 20; // TDB accordingly with max inflights
     // TODO adjust to max inflights ?
-    parameter int NR_SQ_ENTRIES = 16;
-    parameter int NR_ROB_ENTRIES = 32;
-    parameter int NR_BQ_ENTRIES = 16; // Branch Queue entries
+    localparam int NR_SQ_ENTRIES = 16;
+    localparam int NR_ROB_ENTRIES = 32;
+    localparam int NR_BQ_ENTRIES = 16; // Branch Queue entries
 
     /* Memory subsystem */
-    parameter int CACHELINE_SIZE = 8; // TODO 32;
-    parameter int NR_WB_PER_MSHR = 4;
-    parameter int NR_MSHR_ENTRIES = 16;
+    localparam int CACHELINE_SIZE = 8; // TODO 32;
+    localparam int NR_WB_PER_MSHR = 4;
+    localparam int NR_MSHR_ENTRIES = 16;
 
     /* Primitives types */
     typedef logic [ID_BITS-1:0]                id_t;
@@ -152,7 +155,10 @@ package C;
     typedef logic [$clog2(NR_ROB_ENTRIES)-1:0] rob_id_t;
     typedef logic [$clog2(NR_BQ_ENTRIES)-1:0]  bq_id_t;
 
-    typedef enum { SIZE_D, SIZE_W, SIZE_H, SIZE_B } inst_size_t;
+    typedef enum logic [1:0] { 
+        SIZE_D, SIZE_W, SIZE_H, SIZE_B 
+    } inst_size_t;
+
     // We use an intermediate representation so as not to
     // manipulate the RISC-V ISA directly.
     // Each functional unit is associated with a set of operations.
@@ -160,7 +166,7 @@ package C;
     // TODO use a width + sign bit in decoded instruction 
     // to avoid variant encoded in fu op set
 
-    parameter NB_BITS_FU_OP = 5;
+    localparam NB_BITS_FU_OP = 5;
     typedef enum logic [NB_BITS_FU_OP-1:0] {
         NOP_OR_HINT,
         MRET, SRET, DRET,
@@ -216,17 +222,19 @@ package C;
     } fu_set_t;
 
     // All the functional units
-    parameter int NB_FU = 8;
+    localparam int NB_FU = 7;
 
     typedef enum [$clog2(NB_FU)-1:0]{
         FU_NONE, FU_LSU, FU_ALU, FU_CTRL, 
-        FU_MUL,  FU_DIV, FU_CSR, FU_FPU
+        FU_MUL,  FU_DIV, FU_FPU
     } fu_t;
 
+    `ifndef SYNTHESIS
     localparam string dump_fu_arr [NB_FU] = '{
         "FU_NONE", "FU_LSU", "FU_ALU",  "FU_CTRL",
-        "FU_MUL", "FU_DIV", "FU_CSR",  "FU_FPU"
+        "FU_MUL", "FU_DIV", "FU_FPU"
     };
+    `endif
 
     // Create bit vectors typedef to avoid unpacked bit array
     typedef logic[NB_FU-1:0] fu_bitvector_t;
@@ -254,134 +262,134 @@ package C;
     } fuop_t;
 
     /* No instruction */
-    // parameter fuop_t I_NOP       = {FU_NONE, NOP, SIZE_D, TYPE_R};
+    // localparam fuop_t I_NOP       = {FU_NONE, NOP, SIZE_D, TYPE_R};
 
     /* Chapter 25. RISC-V Privileged Instruction Set Listings */
     /* Trap-Return Instructions */    
-    parameter fuop_t I_SRET       = {FU_NONE, SRET, SIZE_D,      TYPE_I};
-    parameter fuop_t I_MRET       = {FU_NONE, MRET, SIZE_D,      TYPE_I};
+    localparam fuop_t I_SRET       = {FU_NONE, SRET, SIZE_D,      TYPE_I};
+    localparam fuop_t I_MRET       = {FU_NONE, MRET, SIZE_D,      TYPE_I};
     /* Interrupt-Management Instructions */
-    parameter fuop_t I_WFI        = {FU_NONE, WFI,  SIZE_D,      TYPE_I}; // TODO
+    localparam fuop_t I_WFI        = {FU_NONE, WFI,  SIZE_D,      TYPE_I}; // TODO
     /* Supervisor Memory-Management Instructions */
-    parameter fuop_t I_SFENCE_VMA  = {FU_NONE, FENCE_VMA, SIZE_D, TYPE_R}; // TODO
+    localparam fuop_t I_SFENCE_VMA  = {FU_NONE, FENCE_VMA, SIZE_D, TYPE_R}; // TODO
 
     /* RV32I Base Instruction Set */
-    parameter fuop_t I_LUI    = {FU_ALU,    LUI,    SIZE_D, TYPE_U};
-    parameter fuop_t I_AUIPC  = {FU_ALU,    AUIPC,  SIZE_D, TYPE_U};
-    parameter fuop_t I_JAL    = {FU_CTRL,   JAL,    SIZE_D, TYPE_J};
-    parameter fuop_t I_JALR   = {FU_CTRL,   JALR,   SIZE_D, TYPE_I};
-    parameter fuop_t I_BLT    = {FU_CTRL,   BLT,    SIZE_D, TYPE_B};
-    parameter fuop_t I_BLTU   = {FU_CTRL,   BLTU,   SIZE_D, TYPE_B};
-    parameter fuop_t I_BGE    = {FU_CTRL,   BGE,    SIZE_D, TYPE_B};
-    parameter fuop_t I_BGEU   = {FU_CTRL,   BGEU,   SIZE_D, TYPE_B};
-    parameter fuop_t I_BEQ    = {FU_CTRL,   BEQ,    SIZE_D, TYPE_B};
-    parameter fuop_t I_BNE    = {FU_CTRL,   BNE,    SIZE_D, TYPE_B};
-    parameter fuop_t I_LB     = {FU_LSU,    L,      SIZE_B, TYPE_I};
-    parameter fuop_t I_LH     = {FU_LSU,    L,      SIZE_H, TYPE_I};
-    parameter fuop_t I_LW     = {FU_LSU,    L,      SIZE_W, TYPE_I};
-    parameter fuop_t I_LBU    = {FU_LSU,    LU,     SIZE_B, TYPE_I};
-    parameter fuop_t I_LHU    = {FU_LSU,    LU,     SIZE_H, TYPE_I};
-    parameter fuop_t I_SB     = {FU_LSU,    S,      SIZE_B, TYPE_S};
-    parameter fuop_t I_SH     = {FU_LSU,    S,      SIZE_H, TYPE_S};
-    parameter fuop_t I_SW     = {FU_LSU,    S,      SIZE_W, TYPE_S};
-    parameter fuop_t I_ADDI   = {FU_ALU,    ADD,    SIZE_D, TYPE_I};
-    parameter fuop_t I_SLTI   = {FU_ALU,    SLT,    SIZE_D, TYPE_I};
-    parameter fuop_t I_SLTIU  = {FU_ALU,    SLTU,   SIZE_D, TYPE_I};
-    parameter fuop_t I_XORI   = {FU_ALU,    XOR,    SIZE_D, TYPE_I};
-    parameter fuop_t I_ORI    = {FU_ALU,    OR,     SIZE_D, TYPE_I};
-    parameter fuop_t I_ANDI   = {FU_ALU,    AND,    SIZE_D, TYPE_I};
-    parameter fuop_t I_ADD    = {FU_ALU,    ADD,    SIZE_D, TYPE_R};
-    parameter fuop_t I_SUB    = {FU_ALU,    SUB,    SIZE_D, TYPE_R};
-    parameter fuop_t I_SLL    = {FU_ALU,    SLL,    SIZE_D, TYPE_R};
-    parameter fuop_t I_SLT    = {FU_ALU,    SLT,    SIZE_D, TYPE_R};
-    parameter fuop_t I_SLTU   = {FU_ALU,    SLTU,   SIZE_D, TYPE_R};
-    parameter fuop_t I_XOR    = {FU_ALU,    XOR,    SIZE_D, TYPE_R};
-    parameter fuop_t I_SRL    = {FU_ALU,    SRL,    SIZE_D, TYPE_R};
-    parameter fuop_t I_SRA    = {FU_ALU,    SRA,    SIZE_D, TYPE_R};
-    parameter fuop_t I_OR     = {FU_ALU,    OR,     SIZE_D, TYPE_R};
-    parameter fuop_t I_AND    = {FU_ALU,    AND,    SIZE_D, TYPE_R};
-    parameter fuop_t I_FENCE  = {FU_NONE,   FENCE,  SIZE_D, TYPE_R};
-    parameter fuop_t I_ECALL  = {FU_NONE,   ECALL,  SIZE_D, TYPE_R};
-    parameter fuop_t I_EBREAK = {FU_NONE,   ECALL,  SIZE_D, TYPE_R};
+    localparam fuop_t I_LUI    = {FU_ALU,    LUI,    SIZE_D, TYPE_U};
+    localparam fuop_t I_AUIPC  = {FU_ALU,    AUIPC,  SIZE_D, TYPE_U};
+    localparam fuop_t I_JAL    = {FU_CTRL,   JAL,    SIZE_D, TYPE_J};
+    localparam fuop_t I_JALR   = {FU_CTRL,   JALR,   SIZE_D, TYPE_I};
+    localparam fuop_t I_BLT    = {FU_CTRL,   BLT,    SIZE_D, TYPE_B};
+    localparam fuop_t I_BLTU   = {FU_CTRL,   BLTU,   SIZE_D, TYPE_B};
+    localparam fuop_t I_BGE    = {FU_CTRL,   BGE,    SIZE_D, TYPE_B};
+    localparam fuop_t I_BGEU   = {FU_CTRL,   BGEU,   SIZE_D, TYPE_B};
+    localparam fuop_t I_BEQ    = {FU_CTRL,   BEQ,    SIZE_D, TYPE_B};
+    localparam fuop_t I_BNE    = {FU_CTRL,   BNE,    SIZE_D, TYPE_B};
+    localparam fuop_t I_LB     = {FU_LSU,    L,      SIZE_B, TYPE_I};
+    localparam fuop_t I_LH     = {FU_LSU,    L,      SIZE_H, TYPE_I};
+    localparam fuop_t I_LW     = {FU_LSU,    L,      SIZE_W, TYPE_I};
+    localparam fuop_t I_LBU    = {FU_LSU,    LU,     SIZE_B, TYPE_I};
+    localparam fuop_t I_LHU    = {FU_LSU,    LU,     SIZE_H, TYPE_I};
+    localparam fuop_t I_SB     = {FU_LSU,    S,      SIZE_B, TYPE_S};
+    localparam fuop_t I_SH     = {FU_LSU,    S,      SIZE_H, TYPE_S};
+    localparam fuop_t I_SW     = {FU_LSU,    S,      SIZE_W, TYPE_S};
+    localparam fuop_t I_ADDI   = {FU_ALU,    ADD,    SIZE_D, TYPE_I};
+    localparam fuop_t I_SLTI   = {FU_ALU,    SLT,    SIZE_D, TYPE_I};
+    localparam fuop_t I_SLTIU  = {FU_ALU,    SLTU,   SIZE_D, TYPE_I};
+    localparam fuop_t I_XORI   = {FU_ALU,    XOR,    SIZE_D, TYPE_I};
+    localparam fuop_t I_ORI    = {FU_ALU,    OR,     SIZE_D, TYPE_I};
+    localparam fuop_t I_ANDI   = {FU_ALU,    AND,    SIZE_D, TYPE_I};
+    localparam fuop_t I_ADD    = {FU_ALU,    ADD,    SIZE_D, TYPE_R};
+    localparam fuop_t I_SUB    = {FU_ALU,    SUB,    SIZE_D, TYPE_R};
+    localparam fuop_t I_SLL    = {FU_ALU,    SLL,    SIZE_D, TYPE_R};
+    localparam fuop_t I_SLT    = {FU_ALU,    SLT,    SIZE_D, TYPE_R};
+    localparam fuop_t I_SLTU   = {FU_ALU,    SLTU,   SIZE_D, TYPE_R};
+    localparam fuop_t I_XOR    = {FU_ALU,    XOR,    SIZE_D, TYPE_R};
+    localparam fuop_t I_SRL    = {FU_ALU,    SRL,    SIZE_D, TYPE_R};
+    localparam fuop_t I_SRA    = {FU_ALU,    SRA,    SIZE_D, TYPE_R};
+    localparam fuop_t I_OR     = {FU_ALU,    OR,     SIZE_D, TYPE_R};
+    localparam fuop_t I_AND    = {FU_ALU,    AND,    SIZE_D, TYPE_R};
+    localparam fuop_t I_FENCE  = {FU_NONE,   FENCE,  SIZE_D, TYPE_R};
+    localparam fuop_t I_ECALL  = {FU_NONE,   ECALL,  SIZE_D, TYPE_R};
+    localparam fuop_t I_EBREAK = {FU_NONE,   ECALL,  SIZE_D, TYPE_R};
 
     /* RV64I Base Instruction Set (in addition to RV32I) */
-    parameter fuop_t I_LWU    = {FU_LSU,    LU,     SIZE_W, TYPE_I};
-    parameter fuop_t I_LD     = {FU_LSU,    L,      SIZE_D, TYPE_I};
-    parameter fuop_t I_SD     = {FU_LSU,    S,      SIZE_D, TYPE_S};
-    parameter fuop_t I_SLLI   = {FU_ALU,    SLL,    SIZE_D, TYPE_SHAMT};
-    parameter fuop_t I_SRLI   = {FU_ALU,    SRL,    SIZE_D, TYPE_SHAMT};
-    parameter fuop_t I_SRAI   = {FU_ALU,    SRA,    SIZE_D, TYPE_SHAMT};
-    parameter fuop_t I_ADDIW  = {FU_ALU,    ADD,    SIZE_W, TYPE_I};
-    parameter fuop_t I_SLLIW  = {FU_ALU,    SLL,    SIZE_W, TYPE_SHAMT};
-    parameter fuop_t I_SRLIW  = {FU_ALU,    SRL,    SIZE_W, TYPE_SHAMT};
-    parameter fuop_t I_SRAIW  = {FU_ALU,    SRA,    SIZE_W, TYPE_SHAMT};
-    parameter fuop_t I_ADDW   = {FU_ALU,    ADD,    SIZE_W, TYPE_R};
-    parameter fuop_t I_SUBW   = {FU_ALU,    SUB,    SIZE_W, TYPE_R};
-    parameter fuop_t I_SLLW   = {FU_ALU,    SLL,    SIZE_W, TYPE_R};
-    parameter fuop_t I_SRLW   = {FU_ALU,    SRL,    SIZE_W, TYPE_R};
-    parameter fuop_t I_SRAW   = {FU_ALU,    SRA,    SIZE_W, TYPE_R};
+    localparam fuop_t I_LWU    = {FU_LSU,    LU,     SIZE_W, TYPE_I};
+    localparam fuop_t I_LD     = {FU_LSU,    L,      SIZE_D, TYPE_I};
+    localparam fuop_t I_SD     = {FU_LSU,    S,      SIZE_D, TYPE_S};
+    localparam fuop_t I_SLLI   = {FU_ALU,    SLL,    SIZE_D, TYPE_SHAMT};
+    localparam fuop_t I_SRLI   = {FU_ALU,    SRL,    SIZE_D, TYPE_SHAMT};
+    localparam fuop_t I_SRAI   = {FU_ALU,    SRA,    SIZE_D, TYPE_SHAMT};
+    localparam fuop_t I_ADDIW  = {FU_ALU,    ADD,    SIZE_W, TYPE_I};
+    localparam fuop_t I_SLLIW  = {FU_ALU,    SLL,    SIZE_W, TYPE_SHAMT};
+    localparam fuop_t I_SRLIW  = {FU_ALU,    SRL,    SIZE_W, TYPE_SHAMT};
+    localparam fuop_t I_SRAIW  = {FU_ALU,    SRA,    SIZE_W, TYPE_SHAMT};
+    localparam fuop_t I_ADDW   = {FU_ALU,    ADD,    SIZE_W, TYPE_R};
+    localparam fuop_t I_SUBW   = {FU_ALU,    SUB,    SIZE_W, TYPE_R};
+    localparam fuop_t I_SLLW   = {FU_ALU,    SLL,    SIZE_W, TYPE_R};
+    localparam fuop_t I_SRLW   = {FU_ALU,    SRL,    SIZE_W, TYPE_R};
+    localparam fuop_t I_SRAW   = {FU_ALU,    SRA,    SIZE_W, TYPE_R};
 
     /* RV32/RV64 Zifencei Standard Extension */
-    parameter fuop_t I_FENCE_I = {FU_NONE,   FENCE_I,  SIZE_D,  TYPE_I};
+    localparam fuop_t I_FENCE_I = {FU_NONE,   FENCE_I,  SIZE_D,  TYPE_I};
 
     /* RV32/RV64 Zicsr Standard Extension */
-    parameter fuop_t I_CSRRW  = {FU_NONE,    CSR_WRITE,  SIZE_D, TYPE_R_FOR_CSR};
-    parameter fuop_t I_CSRRS  = {FU_NONE,    CSR_SET,    SIZE_D, TYPE_R_FOR_CSR};
-    parameter fuop_t I_CSRRC  = {FU_NONE,    CSR_CLEAR,  SIZE_D, TYPE_R_FOR_CSR};
-    parameter fuop_t I_CSRRWI = {FU_NONE,    CSR_WRITE,  SIZE_D, TYPE_I_AND_UIMM};
-    parameter fuop_t I_CSRRSI = {FU_NONE,    CSR_SET,    SIZE_D, TYPE_I_AND_UIMM};
-    parameter fuop_t I_CSRRCI = {FU_NONE,    CSR_CLEAR,  SIZE_D, TYPE_I_AND_UIMM};
+    localparam fuop_t I_CSRRW  = {FU_NONE,    CSR_WRITE,  SIZE_D, TYPE_R_FOR_CSR};
+    localparam fuop_t I_CSRRS  = {FU_NONE,    CSR_SET,    SIZE_D, TYPE_R_FOR_CSR};
+    localparam fuop_t I_CSRRC  = {FU_NONE,    CSR_CLEAR,  SIZE_D, TYPE_R_FOR_CSR};
+    localparam fuop_t I_CSRRWI = {FU_NONE,    CSR_WRITE,  SIZE_D, TYPE_I_AND_UIMM};
+    localparam fuop_t I_CSRRSI = {FU_NONE,    CSR_SET,    SIZE_D, TYPE_I_AND_UIMM};
+    localparam fuop_t I_CSRRCI = {FU_NONE,    CSR_CLEAR,  SIZE_D, TYPE_I_AND_UIMM};
 
     /* RV32/RV64 M Standard Extension */
-    parameter fuop_t I_MUL    = {FU_MUL,     MUL,     SIZE_D, TYPE_R};
-    parameter fuop_t I_MULH   = {FU_MUL,     MULH,    SIZE_D, TYPE_R};
-    parameter fuop_t I_MULHSU = {FU_MUL,     MULHSU,  SIZE_D, TYPE_R};
-    parameter fuop_t I_MULHU  = {FU_MUL,     MULHU,   SIZE_D, TYPE_R};
-    parameter fuop_t I_DIV    = {FU_DIV,     DIV,     SIZE_D, TYPE_R};
-    parameter fuop_t I_DIVU   = {FU_DIV,     DIVU,    SIZE_D, TYPE_R};
-    parameter fuop_t I_REM    = {FU_DIV,     REM,     SIZE_D, TYPE_R};
-    parameter fuop_t I_REMU   = {FU_DIV,     REMU,    SIZE_D, TYPE_R};
-    parameter fuop_t I_MULW   = {FU_MUL,     MULW,    SIZE_D, TYPE_R};
-    parameter fuop_t I_DIVW   = {FU_DIV,     DIV,     SIZE_W, TYPE_R};
-    parameter fuop_t I_DIVUW  = {FU_DIV,     DIVU,    SIZE_W, TYPE_R};  
-    parameter fuop_t I_REMW   = {FU_DIV,     REM,     SIZE_W, TYPE_R};
-    parameter fuop_t I_REMUW  = {FU_DIV,     REMU,    SIZE_W, TYPE_R};
+    localparam fuop_t I_MUL    = {FU_MUL,     MUL,     SIZE_D, TYPE_R};
+    localparam fuop_t I_MULH   = {FU_MUL,     MULH,    SIZE_D, TYPE_R};
+    localparam fuop_t I_MULHSU = {FU_MUL,     MULHSU,  SIZE_D, TYPE_R};
+    localparam fuop_t I_MULHU  = {FU_MUL,     MULHU,   SIZE_D, TYPE_R};
+    localparam fuop_t I_DIV    = {FU_DIV,     DIV,     SIZE_D, TYPE_R};
+    localparam fuop_t I_DIVU   = {FU_DIV,     DIVU,    SIZE_D, TYPE_R};
+    localparam fuop_t I_REM    = {FU_DIV,     REM,     SIZE_D, TYPE_R};
+    localparam fuop_t I_REMU   = {FU_DIV,     REMU,    SIZE_D, TYPE_R};
+    localparam fuop_t I_MULW   = {FU_MUL,     MULW,    SIZE_D, TYPE_R};
+    localparam fuop_t I_DIVW   = {FU_DIV,     DIV,     SIZE_W, TYPE_R};
+    localparam fuop_t I_DIVUW  = {FU_DIV,     DIVU,    SIZE_W, TYPE_R};  
+    localparam fuop_t I_REMW   = {FU_DIV,     REM,     SIZE_W, TYPE_R};
+    localparam fuop_t I_REMUW  = {FU_DIV,     REMU,    SIZE_W, TYPE_R};
 
     /* RV32A Standard Extension */
-    parameter fuop_t I_LR_W       = {FU_LSU, AMO_LR,   SIZE_W, TYPE_R};
-    parameter fuop_t I_SC_W       = {FU_LSU, AMO_SC,   SIZE_W, TYPE_R};
-    parameter fuop_t I_AMOSWAP_W  = {FU_LSU, AMO_SWAP, SIZE_W, TYPE_R};
-    parameter fuop_t I_AMOADD_W   = {FU_LSU, AMO_ADD,  SIZE_W, TYPE_R};
-    parameter fuop_t I_AMOAND_W   = {FU_LSU, AMO_AND,  SIZE_W, TYPE_R};
-    parameter fuop_t I_AMOOR_W    = {FU_LSU, AMO_OR,   SIZE_W, TYPE_R};
-    parameter fuop_t I_AMOXOR_W   = {FU_LSU, AMO_XOR,  SIZE_W, TYPE_R};
-    parameter fuop_t I_AMOMAX_W   = {FU_LSU, AMO_MAX,  SIZE_W, TYPE_R};
-    parameter fuop_t I_AMOMAXU_W  = {FU_LSU, AMO_MAXU, SIZE_W, TYPE_R};
-    parameter fuop_t I_AMOMIN_W   = {FU_LSU, AMO_MIN,  SIZE_W, TYPE_R};
-    parameter fuop_t I_AMOMINU_W  = {FU_LSU, AMO_MINU, SIZE_W, TYPE_R};
+    localparam fuop_t I_LR_W       = {FU_LSU, AMO_LR,   SIZE_W, TYPE_R};
+    localparam fuop_t I_SC_W       = {FU_LSU, AMO_SC,   SIZE_W, TYPE_R};
+    localparam fuop_t I_AMOSWAP_W  = {FU_LSU, AMO_SWAP, SIZE_W, TYPE_R};
+    localparam fuop_t I_AMOADD_W   = {FU_LSU, AMO_ADD,  SIZE_W, TYPE_R};
+    localparam fuop_t I_AMOAND_W   = {FU_LSU, AMO_AND,  SIZE_W, TYPE_R};
+    localparam fuop_t I_AMOOR_W    = {FU_LSU, AMO_OR,   SIZE_W, TYPE_R};
+    localparam fuop_t I_AMOXOR_W   = {FU_LSU, AMO_XOR,  SIZE_W, TYPE_R};
+    localparam fuop_t I_AMOMAX_W   = {FU_LSU, AMO_MAX,  SIZE_W, TYPE_R};
+    localparam fuop_t I_AMOMAXU_W  = {FU_LSU, AMO_MAXU, SIZE_W, TYPE_R};
+    localparam fuop_t I_AMOMIN_W   = {FU_LSU, AMO_MIN,  SIZE_W, TYPE_R};
+    localparam fuop_t I_AMOMINU_W  = {FU_LSU, AMO_MINU, SIZE_W, TYPE_R};
 
     /* RV64A Standard Extension (in addition to RV32A) */
-    parameter fuop_t I_LR_D       = {FU_LSU, AMO_LR,   SIZE_D, TYPE_R};
-    parameter fuop_t I_SC_D       = {FU_LSU, AMO_SC,   SIZE_D, TYPE_R};
-    parameter fuop_t I_AMOSWAP_D  = {FU_LSU, AMO_SWAP, SIZE_D, TYPE_R};
-    parameter fuop_t I_AMOADD_D   = {FU_LSU, AMO_ADD,  SIZE_D, TYPE_R};
-    parameter fuop_t I_AMOXOR_D   = {FU_LSU, AMO_XOR,  SIZE_D, TYPE_R};
-    parameter fuop_t I_AMOAND_D   = {FU_LSU, AMO_AND,  SIZE_D, TYPE_R};
-    parameter fuop_t I_AMOOR_D    = {FU_LSU, AMO_OR,   SIZE_D, TYPE_R};
-    parameter fuop_t I_AMOMIN_D   = {FU_LSU, AMO_MIN,  SIZE_D, TYPE_R};
-    parameter fuop_t I_AMOMAX_D   = {FU_LSU, AMO_MAX,  SIZE_D, TYPE_R};
-    parameter fuop_t I_AMOMINU_D  = {FU_LSU, AMO_MINU, SIZE_D, TYPE_R};
-    parameter fuop_t I_AMOMAXU_D  = {FU_LSU, AMO_MAXU, SIZE_D, TYPE_R};
+    localparam fuop_t I_LR_D       = {FU_LSU, AMO_LR,   SIZE_D, TYPE_R};
+    localparam fuop_t I_SC_D       = {FU_LSU, AMO_SC,   SIZE_D, TYPE_R};
+    localparam fuop_t I_AMOSWAP_D  = {FU_LSU, AMO_SWAP, SIZE_D, TYPE_R};
+    localparam fuop_t I_AMOADD_D   = {FU_LSU, AMO_ADD,  SIZE_D, TYPE_R};
+    localparam fuop_t I_AMOXOR_D   = {FU_LSU, AMO_XOR,  SIZE_D, TYPE_R};
+    localparam fuop_t I_AMOAND_D   = {FU_LSU, AMO_AND,  SIZE_D, TYPE_R};
+    localparam fuop_t I_AMOOR_D    = {FU_LSU, AMO_OR,   SIZE_D, TYPE_R};
+    localparam fuop_t I_AMOMIN_D   = {FU_LSU, AMO_MIN,  SIZE_D, TYPE_R};
+    localparam fuop_t I_AMOMAX_D   = {FU_LSU, AMO_MAX,  SIZE_D, TYPE_R};
+    localparam fuop_t I_AMOMINU_D  = {FU_LSU, AMO_MINU, SIZE_D, TYPE_R};
+    localparam fuop_t I_AMOMAXU_D  = {FU_LSU, AMO_MAXU, SIZE_D, TYPE_R};
 
     /* RV32F Standard Extension */
-    // parameter fuop_t FLD = {FU_LSU, FLD};
-    // parameter fuop_t FLW = {FU_LSU, FLW};
-    // parameter fuop_t FLH = {FU_LSU, FLH};
-    // parameter fuop_t FLB = {FU_LSU, FLB};
-    // parameter fuop_t FSD = {FU_LSU, FSD};
-    // parameter fuop_t FSW = {FU_LSU, FSW};
-    // parameter fuop_t FSH = {FU_LSU, FSH};
-    // parameter fuop_t FSB = {FU_LSU, FSB};
+    // localparam fuop_t FLD = {FU_LSU, FLD};
+    // localparam fuop_t FLW = {FU_LSU, FLW};
+    // localparam fuop_t FLH = {FU_LSU, FLH};
+    // localparam fuop_t FLB = {FU_LSU, FLB};
+    // localparam fuop_t FSD = {FU_LSU, FSD};
+    // localparam fuop_t FSW = {FU_LSU, FSW};
+    // localparam fuop_t FSH = {FU_LSU, FSH};
+    // localparam fuop_t FSB = {FU_LSU, FSB};
 
     // Branch prediction
     typedef struct packed {
@@ -487,7 +495,8 @@ package C;
         logic commited;     // Entry used
         logic completed;
     } sq_entry_t;
-
+    
+    `ifndef SYNTHESIS
     function automatic string dump_sq_entry (
         input sq_entry_t sqe
     );
@@ -495,19 +504,19 @@ package C;
                          sqe.pc, sqe.id, sqe.paddr, sqe.fmask, sqe.fdata,
                          sqe.commited);
     endfunction
-
+    `endif
 
 
     /* address ranges and attributes */
-    parameter int MEM_ADDR_WIDTH = 25;
-    parameter xlen_t RANGES_MEM_SIZE = 1 << MEM_ADDR_WIDTH;
-    parameter xlen_t RANGES_MEM_BASE = 64'h8000_0000;
-    parameter xlen_t RANGES_MEM_END = RANGES_MEM_BASE + RANGES_MEM_SIZE;
+    localparam int MEM_ADDR_WIDTH = 25;
+    localparam xlen_t RANGES_MEM_SIZE = 1 << MEM_ADDR_WIDTH;
+    localparam xlen_t RANGES_MEM_BASE = 64'h8000_0000;
+    localparam xlen_t RANGES_MEM_END = RANGES_MEM_BASE + RANGES_MEM_SIZE;
 
-    parameter int    UART_ADDR_WIDTH = 5;
-    parameter xlen_t RANGES_UART_BASE = 64'h1000_0000;
-    parameter xlen_t RANGES_UART_SIZE = 1 << UART_ADDR_WIDTH;
-    parameter xlen_t RANGES_UART_END = RANGES_UART_BASE + RANGES_UART_SIZE;
+    localparam int    UART_ADDR_WIDTH = 5;
+    localparam xlen_t RANGES_UART_BASE = 64'h1000_0000;
+    localparam xlen_t RANGES_UART_SIZE = 1 << UART_ADDR_WIDTH;
+    localparam xlen_t RANGES_UART_END = RANGES_UART_BASE + RANGES_UART_SIZE;
 
 
     function automatic logic is_inrange(
@@ -522,7 +531,7 @@ package C;
     
 
     /********** A LOT OF DISLAYER *************/
-
+    `ifndef SYNTHESIS
     // Integer register names (RV64)
     localparam string IntRegNames [0:31] = '{
         "zero", "ra",   "sp",  "gp",
@@ -579,6 +588,7 @@ package C;
                           dumpPReg(preg, renamed));
 
     endfunction
+    `endif
 
     /* Utils */
     function automatic logic [64-1:0] sext32to64(logic [32-1:0] x);
@@ -600,12 +610,12 @@ package C;
 endpackage
 
 interface csr_if #();
-    logic          rvalid;
-    RV::csr_addr_t raddr; // Read port
-    xlen_t         rdata;
-    logic          wvalid;
-    RV::csr_addr_t waddr; // Write port
-    xlen_t         wdata;
+    logic        rvalid;
+    logic [11:0] raddr;
+    C::xlen_t       rdata;
+    logic        wvalid;
+    logic [11:0] waddr;
+    C::xlen_t       wdata;
     modport master (
         output rvalid,
         output raddr,
@@ -625,13 +635,13 @@ interface csr_if #();
 endinterface : csr_if
 
 interface bq_push_if #();
-    pc_t pc; // debug only ?
-    id_t id; // debug only
-    bp_t  bp;   // single prediction
+    C::pc_t pc; // debug only ?
+    C::id_t id; // debug only
+    C::bp_t  bp;   // single prediction
     // Use intf to easyly extends this class (Ras state ...)
     logic valid;
     logic ready;
-    bq_id_t bqid; // Index to write back branch OoO
+    C::bq_id_t bqid; // Index to write back branch OoO
 
     modport master (
         output pc,
@@ -650,7 +660,7 @@ endinterface
 
 
 interface bq_pop_if #();
-    bp_t bp;
+    C::bp_t bp;
     logic missprediction;
     logic pop;
     modport bq (
@@ -665,8 +675,8 @@ endinterface
 
 interface squash_if #();
     logic valid; // Do squash 
-    id_t  id; // The ID from where to squash (Needed for flush at execute)
-    pc_t resolved_pc;    // Resolved pc 
+    C::id_t  id; // The ID from where to squash (Needed for flush at execute)
+    C::pc_t resolved_pc;    // Resolved pc 
     modport master (
         output valid, id, resolved_pc
     );
@@ -679,16 +689,16 @@ endinterface
 interface dcache_ports_if #();
     
     // Load Address channel
-    xlen_t      load_a_addr;
+    C::xlen_t      load_a_addr;
     logic       load_a_valid;
     logic       load_a_ready;
     // Load Data channel
-    xlen_t      load_d_data;
+    C::xlen_t      load_d_data;
     logic       load_d_valid;
 
-    xlen_t      waddr;
+    C::xlen_t      waddr;
     // inst_size_t wsize;
-    xlen_t      wdata;
+    C::xlen_t      wdata;
     logic [8-1:0] wmask;
     logic       wvalid;
     logic       wready;

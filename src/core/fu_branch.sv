@@ -109,8 +109,10 @@ module fu_branch #() (
                 commit_id_q <= 0;
             end else begin
                 if(bq_push_io.valid) begin // Push new entry InO
+                    `ifndef SYNTHESIS
                     assert (!bq_full) else 
                         $error("PUSH in full bq");
+                    `endif
                     bq[pred_id_q].bp <= bq_push_io.bp;
                     bq[pred_id_q].pc <= bq_push_io.pc;
                     bq[pred_id_q].id <= bq_push_io.id;
@@ -122,8 +124,10 @@ module fu_branch #() (
                     bq[resolved_id_i].missprediction <= missprediction;
                 end
                 if(commit_entry_pop) begin // Pop committed entry InO
+                    `ifndef SYNTHESIS
                     assert (!bq_empty) else
                         $error("POP in empty bq");
+                    `endif
                     commit_id_q <= commit_id_q + 1;
                 end
                 // count_q single case assignement
@@ -145,6 +149,7 @@ module fu_branch #() (
         end
     end
 
+    `ifndef SYNTHESIS
     always_ff @(negedge clk) begin
         for(int i = 0; i < count_q; i++) begin
             bq_id_t idx = bq_id_t'(i) + commit_id_q;
@@ -157,6 +162,7 @@ module fu_branch #() (
                 resolved_id_i, resolved_pc_i, resolved_taken_i, missprediction);
         end
     end
+    `endif
 
     /* Branch alu */
     xlen_t     balu_rs1;

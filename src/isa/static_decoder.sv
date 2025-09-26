@@ -10,6 +10,8 @@ module static_decoder #() (
   C::fuop_t fuop;
   logic [C::XLEN-1:0] imm;
   logic valid;
+  areg_id_t rs1, rs2, rd;
+  logic rs1v, rs2v, rdv;
 
   always_comb begin : decoder
     valid = 1'b1;
@@ -142,11 +144,10 @@ module static_decoder #() (
     endcase
   end
 
-  areg_id_t rs1, rs2, rd;
+ 
   assign rs1 = data_i[19:15]; // Let's have fast calculation
   assign rs2 = data_i[24:20];
   assign rd = data_i[11:7];
-  logic rs1v, rs2v, rdv;
   // TODO TYPE_I_AND_UIMM
   assign rs1v = fuop.fmt inside {C::TYPE_R, C::TYPE_I, C::TYPE_SHAMT,
                                  C::TYPE_S, C::TYPE_B, C::TYPE_R_FOR_CSR};

@@ -8,6 +8,7 @@ module system #() (
   output logic [C::XLEN-1:0] exit_code_o
 );
 
+  `ifndef SYNTHESIS
   initial begin
       log_init();
       `LOG(COMMIT, "Hello from logger");
@@ -20,13 +21,14 @@ module system #() (
   always @(negedge clk) begin
     #0 `LOG(PIPE, "======================================== #0 negedge ========================================");
   end
-  
+  `endif
+
   logic [C::XLEN-1:0] fetch_addr;
   logic [32-1:0]      fetch_data;
   logic [C::XLEN-1:0] fetch_data64;
   logic               fetch_bo_q;
 
-  parameter unsigned ADDR_WIDTH = 20;
+  localparam unsigned ADDR_WIDTH = 20;
   
   dcache_ports_if dcache_ports_io();
 
@@ -83,6 +85,7 @@ module system #() (
     mem_rvalid_q <= mem_rvalid;
   end
 
+  `ifndef SYNTHESIS
   always_ff @(negedge clk) begin 
     if(dcache_ports_io.wvalid) begin
       `LOG(MEM, "MEM STORES @=%x, D=%x, MASK=%x (MAP: %s)",
@@ -107,6 +110,7 @@ module system #() (
         );
     end
   end
+  `endif
 
   xlen_t        mem_rata;
   xlen_t        uart_rdata;

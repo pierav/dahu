@@ -1,7 +1,6 @@
 package handler_pkg;
-
+    `ifndef SYNTHESIS
     // ref to share by pointer
-
     import "DPI-C" context function void dpi_monitor_init();
     import "DPI-C" context function void dpi_tick();
 
@@ -59,5 +58,5 @@ package handler_pkg;
 
     import "DPI-C" context function int dpi_is_poweroff();
     import "DPI-C" context function longint unsigned dpi_exit_code();
-
+    `endif
 endpackage

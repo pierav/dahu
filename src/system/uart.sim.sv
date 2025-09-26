@@ -83,6 +83,7 @@ module uart8250 (
     integer uart_tx_fd;
     // TODO uart_rx_fd
 
+    `ifndef SYNTHESIS
     // Function to send char to file
     initial begin
         uart_tx_fd = $fopen("uart_output.log", "w");
@@ -94,7 +95,7 @@ module uart8250 (
     function void uart_send_char(input logic[8-1:0] ch);
         $fwrite(uart_tx_fd, "%c", ch);
     endfunction
-
+    `endif
 
     always_ff @(posedge clk) begin
         if (!rstn) begin
@@ -115,7 +116,9 @@ module uart8250 (
                         if (lcr.dlab) begin
                             dll <= wdata;
                         end else begin
+                            `ifndef SYNTHESIS
                             uart_send_char(wdata);
+                            `endif
                         end
                     end
                     IER /*, DLM*/: begin
@@ -131,7 +134,11 @@ module uart8250 (
                     SCR: scr <= wdata;
                     LSR:; /* Factory test */
                     MSR:; /* Not used */    
-                    default: $error("Unhandled REG %x", waddr);
+                    default: 
+                    `ifndef SYNTHESIS
+                        $error("Unhandled REG %x", waddr)
+                    `endif
+                    ;
                 endcase
             end
             if(rvalid) begin
@@ -141,7 +148,11 @@ module uart8250 (
                     LSR: rdata <= lsr;
                     MSR: rdata <= msr;
                     SCR: rdata <= scr;
-                    default: $error("Unhandled REG %x", raddr);
+                    default:
+                    `ifndef SYNTHESIS
+                        $error("Unhandled REG %x", raddr)
+                    `endif
+                    ;
                 endcase
             end
         end

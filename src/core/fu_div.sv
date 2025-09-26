@@ -2,8 +2,8 @@
 import C::*;
 
 module fu_div #(
-    parameter int WIDTH = 64,
-    parameter int BPC   = 8
+    parameter integer WIDTH = 64,
+    parameter integer BPC   = 8
 ) (
     input  logic                 clk,
     input  logic                 rstn,
@@ -113,10 +113,12 @@ module fu_div #(
                 RUN: begin
                     // iterative unsigned division (multi-bit per cycle)
                     int iter;
-                    logic [WIDTH-1:0] q = quo_q;
-                    logic [WIDTH-1:0] r = rem_q;
-                    int next_bit = bit_index_q;
-
+                    int next_bit;
+                    logic [WIDTH-1:0] q;
+                    logic [WIDTH-1:0] r;
+                    q = quo_q;
+                    r = rem_q;
+                    next_bit = bit_index_q;
                     for (iter = 0; iter < BPC; iter++) begin
                         if (next_bit >= 0) begin
                             r = {r[WIDTH-2:0], dividend_q[next_bit]};

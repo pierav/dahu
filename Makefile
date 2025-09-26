@@ -1,6 +1,6 @@
 
 TOP = system
-PKGS := src/C_pkg.sv src/core_oracle/handler_pkg.sv
+PKGS := src/riscv_pkg.sv src/C_pkg.sv src/core_oracle/handler_pkg.sv
 
 SRC := $(PKGS) \
 		$(wildcard src/isa/*.sv) \
@@ -59,4 +59,17 @@ $(COMPLIANCE_SIMDIR)/%.run: $(COMPLIANCE_DIR)/%.elf
 	./build/Vsystem -b $< && echo OK || echo FAIL
 
 run_compliance: $(COMPLIANCE_RUNS)
+
+#######################################################
+# Synth
+#######################################################
+
+synth.flist: force
+	@echo $(addprefix $(CURDIR)/,$(SRC)) | sed -s 's/ /\n/g' > $@
+
+force:
+	@:
+
+
+
 

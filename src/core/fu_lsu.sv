@@ -12,9 +12,10 @@ module forward_from_sq(
 ); 
     // 0) Order sq so simply indexing ?
     sq_entry_t [NR_SQ_ENTRIES-1:0] sq_ordered;
+    sq_id_t idx;
     always_comb begin
         for (int i = 0; i < NR_SQ_ENTRIES; i++) begin
-            sq_id_t idx = (sq_issue_id_i - sq_id_t'(1 - i + NR_SQ_ENTRIES));
+            idx = (sq_issue_id_i - sq_id_t'(1 - i + NR_SQ_ENTRIES));
             sq_ordered[i] = sq_i[idx];
         end
     end
@@ -25,9 +26,11 @@ module forward_from_sq(
     localparam int TAG_LO = $clog2(BYTES);
 
     // Format load addr/size
-    logic [XLEN-1:TAG_LO] load_tag = load_addr_i[XLEN-1:TAG_LO];
-    logic [2:0]           load_bo  = load_addr_i[2:0];
+    logic [XLEN-1:TAG_LO] load_tag;
+    logic [2:0]           load_bo;
     logic [XLEN/8-1:0]    load_mask;
+    assign load_bo = load_addr_i[2:0];
+    assign load_tag = load_addr_i[XLEN-1:TAG_LO];
     always_comb begin
         load_mask = '0;
         unique case (size_i)
@@ -190,16 +193,20 @@ module fu_lsu #() (
             sq_pop_id_q     <= sq_pop_id_d;
         end
     end
+
+    `ifndef SYNTHESIS
+    sq_id_t idx;
     always_ff @(negedge clk) begin
         `LOG(LSU, "SQ issueptr=%x commitptr=%x popptr=%x",
             sq_issue_id_q, sq_commit_id_q, sq_pop_id_q);
         for(int i = 0; i < NR_SQ_ENTRIES; i++) begin
-            sq_id_t idx = sq_pop_id_q + sq_id_t'(i);
+            idx = sq_pop_id_q + sq_id_t'(i);
             if(sq[idx].valid) begin
                 `LOG(LSU, "SQ[%x]: %s", idx, dump_sq_entry(sq[idx]));
             end
         end
     end
+    `endif
 
     // aynchronous Read ports
     assign sq_pop_entry_o = sq[sq_pop_id_q];
@@ -224,8 +231,9 @@ module fu_lsu #() (
 
     /*** Address computation ****/
     logic [XLEN-1:0] address_virt;
+    logic translation_done;
     assign address_virt = base_address_virt + imm;
-    logic translation_done = fuinput_i_valid; // TODO buffer while translation
+    assign translation_done = fuinput_i_valid; // TODO buffer while translation
 
     /* Address translation */
     // TODO mmu
@@ -399,7 +407,8 @@ module fu_lsu #() (
             SIZE_D: load_data_sext = shifted; // full 64-bit load
         endcase
     end
-
+    
+    `ifndef SYNTHESIS
     always_ff @(negedge clk) begin
         if(dcache_ports_io.load_d_valid) begin
             `LOG(LSU, "LOAD COMPLETE PC:%x (sn=%x), D=%x, fw_mask=%x, fw_data=%x (merged:%x)",
@@ -407,6 +416,8 @@ module fu_lsu #() (
                     wait_load_q.fw_mask, wait_load_q.fw_data, load_data_merged);
         end
     end
+    `endif
+
     /* Output (only for LQ and AMO) */
     assign fuoutput_o.pc    = wait_load_q.pc;
     assign fuoutput_o.id    = wait_load_q.id;

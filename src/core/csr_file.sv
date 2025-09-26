@@ -90,6 +90,7 @@ module csr_file #(
         end
     end
 
+    `ifndef SYNTHESIS
     always_ff @(posedge clk) begin
         if (csr_io.wvalid && illegalw) begin
             $error("UNIMPLEMENTED CSR WRITE at @=%x, D=%x",
@@ -100,5 +101,6 @@ module csr_file #(
                 csr_io.raddr, csr_io.rvalid);
         end
     end
+    `endif
 
 endmodule

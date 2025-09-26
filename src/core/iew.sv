@@ -29,8 +29,8 @@ module iew #() (
 );
     // TODO 0: Handle many write backs
     // TODO 1: Bancked PRF ?
-    parameter PRF_READ_PORTS = NR_ISSUE_PRF_READ_PORTS + NR_COMMIT_PORTS;
-    parameter int NREAD = 2;
+    localparam int PRF_READ_PORTS = NR_ISSUE_PRF_READ_PORTS + NR_COMMIT_PORTS;
+    localparam int NREAD = 2;
     // Write ports
     logic [NR_WB_PORTS-1:0]                   prf_we;
     logic [NR_WB_PORTS-1:0][PREG_ID_BITS-1:0] prf_waddr;
@@ -264,6 +264,8 @@ module iew #() (
             sb_iss_we[i]    = fuinput_o_valid && di_i.si.rd_valid;
         end
     end
+
+    `ifndef SYNTHESIS
     string cause;
     always_comb begin
         cause = "";
@@ -317,7 +319,7 @@ module iew #() (
             `LOG(IEW, "Issue: (port0) no ready inputs");
         end
     end
-
+    `endif
 
     /* Backward path : write back ! */
     always_comb begin
@@ -330,6 +332,7 @@ module iew #() (
         end
     end
 
+    `ifndef SYNTHESIS
     fu_output_t wbfw0 [NR_WB_PORTS];
     logic [NR_WB_PORTS-1:0] wbfw0_valid;
     assign wbfw0 = bypass_fuoutput_i;
@@ -348,6 +351,7 @@ module iew #() (
             end
         end
     end
+    `endif
 
     /* Completion path */
     rob_entry_t [NR_ROB_ENTRIES-1:0] rob;
@@ -356,7 +360,6 @@ module iew #() (
     logic       rob_push_i_valid; // Input
     logic       rob_push_i_ready; // Output
     rob_entry_t rob_push_data_i;
-    assign      rob_push_i_ready = !rob_allocated[rob_issue_id_q];
     // ROB Inputs completion
     logic [NR_COMPL_PORTS-1:0] rob_cmpl_id_i_valid;
     rob_id_t                   rob_cmpl_id_i [NR_COMPL_PORTS];
@@ -366,8 +369,10 @@ module iew #() (
     logic       rob_pop_i;
     // ROB pointers
     rob_id_t    rob_issue_id_q, rob_issue_id_d;
+    rob_id_t    rob_retire_id_q, rob_retire_id_d;
+
+    assign      rob_push_i_ready = !rob_allocated[rob_issue_id_q];
     assign      rob_issue_id_d = rob_issue_id_q + 1;
-    rob_id_t    rob_retire_id_q, rob_retire_id_d;    
     assign      rob_retire_id_d = rob_retire_id_q + 1;
     always_ff @(posedge clk) begin
         if(!rstn) begin
@@ -386,8 +391,10 @@ module iew #() (
             end else begin
                 // Issue ports
                 if(rob_push_i_valid) begin
+                    `ifndef SYNTHESIS
                     assert (!rob_allocated[rob_issue_id_q]) else 
                         $error("Overallocate rob entry");
+                    `endif
                     rob[rob_issue_id_q] <= rob_push_data_i;
                     rob_allocated[rob_issue_id_q] <= 1'b1;
                     rob_issue_id_q <= rob_issue_id_d;
@@ -399,10 +406,12 @@ module iew #() (
                     end
                 end
                 if (rob_pop_i) begin
+                    `ifndef SYNTHESIS
                     assert (rob_allocated[rob_retire_id_q]) else
                         $error("Pop Unallocated entry");
                     assert (rob[rob_retire_id_q].completed) else 
                         $error("Pop Uncompleted entry");
+                    `endif
                     rob_allocated[rob_retire_id_q] <= 1'b0;
                     rob_retire_id_q <= rob_retire_id_d;
                 end
@@ -517,6 +526,7 @@ module iew #() (
     assign retire_entry_o = retire_entry_q;
     assign retire_entry_o_valid = retire_entry_q_valid;
 
+    `ifndef SYNTHESIS
     always_ff @(posedge clk) begin
         if(rob_allocated[rob_retire_id_q]) begin
             `LOG(IEW, "Retire: (port0) %s: pc %x (sn=%x) %s",
@@ -532,6 +542,7 @@ module iew #() (
             `LOG(IEW, "Retire: (port0) empty");
         end
     end
+    `endif
 
     /* Commit stage */
     rob_entry_t commit_entry_i;         // The instruction to commit
@@ -565,6 +576,7 @@ module iew #() (
     assign squash_iom.id            = commit_entry_i.id;
     assign squash_iom.resolved_pc   = bq_pop_io.bp.pcnext;
 
+    `ifndef SYNTHESIS
     always_ff @(posedge clk) begin
         if(commit_entry_i_valid) begin
             `LOG(IEW, "Commit: (port0) %s: pc %x (sn=%x) rd:%x=%x (wb?%d) v:%x",
@@ -586,7 +598,7 @@ module iew #() (
             `LOG(IEW, "Retire: (port0) empty");
         end
     end
-
+    `endif
 
 endmodule
 
