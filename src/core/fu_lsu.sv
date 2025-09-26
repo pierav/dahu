@@ -9,7 +9,7 @@ module forward_from_sq(
     output logic [8-1:0] fw_mask_o,
     output xlen_t        fw_data_o,
     output logic         stlf_fully_satisfied_o
-); 
+);
     // 0) Order sq so simply indexing ?
     sq_entry_t [NR_SQ_ENTRIES-1:0] sq_ordered;
     sq_id_t idx;

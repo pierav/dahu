@@ -8,6 +8,10 @@
 
 set PERIOD 10
 set DESIGN_NAME core
+# set DESIGN_NAME fu_div
+# set DESIGN_NAME fu_mul
+# set DESIGN_NAME fu_lsu
+
 #TARGET_LIBRARY_FILES
 set TLF [getenv TLF]
 # set rtl_files [read_file ../synth.flist]
@@ -96,6 +100,7 @@ set_load 0.05 [all_outputs]; # 50 fF load
 
 # -gate_clock TODO !
 compile_ultra -no_boundary_optimization
+# -retime
 report_qor -file qor_report.txt
 
 #------------------------------------------------------

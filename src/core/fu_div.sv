@@ -3,7 +3,7 @@ import C::*;
 
 module fu_div #(
     parameter integer WIDTH = 64,
-    parameter integer BPC   = 8
+    parameter integer BPC   = 2
 ) (
     input  logic                 clk,
     input  logic                 rstn,
