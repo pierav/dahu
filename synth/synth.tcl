@@ -100,23 +100,68 @@ set_load 0.05 [all_outputs]; # 50 fF load
 #------------------------------------------------------
 
 # Disable retiming globally
-set_dont_retime [get_cells -hierarchical *] true
 
-get_designs *
+set all_cells [get_cells -hierarchical *]
+# set_dont_retime $all_cells true
+
+set tok arith_mul_base
+set match_cells {}
+
+foreach_in_collection cell $all_cells {
+    set name [get_object_name $cell]
+    if {[string first $tok $name] != -1} {
+        puts "Retime $name"
+        set_dont_retime $name false
+    } else {
+        set_dont_retime $name true
+        # puts "Substring not found."
+    }
+}
+
+# HOW to get things clean ?????
+# get_designs *
+# get_cells "*" -quiet -hier -filter "ref_name =~ arith_mul_base"
+# get_cells -hierarchical
+# get_cells -hierarchical *
+# get_cells -hierarchical * -filter "arith_mul_base"
+# get_cells -hierarchical -filter .*arith_mul_base.*
+# get_cells -hierarchical "*arith_mul_base*"
+# get_cells -hierarchical -filter "arith_mul_base"
+# get_cells -hierarchical -filter ".*arith_mul_base.*"
+# get_cells -hierarchical -filter ".*arith_mul_base.*"
+# get_cells
+# get_cells -hierarchical *arith_mul_base*
+# get_designs arith_mul_base
+# get_cells -hierarchical -filter "ref_name == arith_mul_base"
+# get_cells -hierarchical -filter "ref_name =~ .*arith_mul_base.*" *
+# get_cells -hierarchical -of_objects arith_mul_base
+# get_cells -hierarchical -filter ".*arith_mul_base/I.*"
+# get_cells -hierarchical -filter "name =~ *arith_mul_base/I_*"
+# get_cells arith_mul_base
+# get_cells -hierarchical -of_objects [get_cells arith_mul_base]
+# get_cells -hierarchical -of_objects arith_mul_base_PIPE_OUT2
+# get_cells -hierarchical -of_objects arith_mul_base_PIPE_OUT2 -filter "cell_type == DFF"
+# set mult_inst [get_cells arith_mul_base]
+# set mult_cells [get_cells -hierarchical -of_objects $mult_inst]
+# set mult_regs [get_cells -of_objects $mult_cells -filter "cell_type == DFF"]
 
 # Enable retiming
-foreach mod {fu_mul} {
-    set d [get_designs $mod]
-    if {[sizeof_collection $d] == 0} {
-        puts "!! No design found for $mod"
-        continue
-    }
+# foreach mod {arith_mul_base} {
+#     # Enable retiming for any instance containing "arith_mul_base"
+#     # set retimelist [get_cells -hierarchical -filter "name =~ .*arith_mul_base.*"]
+#     # set retimelist [get_cells -hierarchical -filter "ref_name =~ .*$mod.*"]
+#     # set retimelist [get_cells -hierarchical -of_objects $mod]
+#     set retimelist [get_cells -hierarchical *arith_mul_base*]
+#     # set retimelist [get_cells -hierarchical -filter "ref_name == $mod"]
+#     puts "Enable retiming for $mod: $retimelist"
+#     set_dont_retime {*}$retimelist false
+# }
 
-    set retimelist [get_cells -hierarchical -of_objects $d]
-    # set retimelist [get_cells -hierarchical -filter "ref_name == $mod"]
-    puts "Enable retiming for $mod: $retimelist"
-    set_dont_retime $retimelist false
-}
+# get_cells -hierarchical *arith_mul_base/pipe_q_reg*
+
+# set mul [get_cells arith_mul_base/pipe_q_reg]
+# set_dont_retime arith_mul_base_PIPE_OUT2 false
+
 
 # if {[sizeof_collection $insts] > 0} {
 #     puts ">> Enabling retiming for module '$mod' on [sizeof_collection $insts] instances"

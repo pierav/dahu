@@ -22,6 +22,16 @@ make
 
 # Asic Synthesis
 
+```sh
+# Build flist
+make synth.flist
+# Export target library file
+export TLF=<PATH_TO_YOUR_DB_FILE>
+# Launch synthesis
+cd synth
+dc_shell -f synth.tcl
+```
+
 # RISC-V
 
 use `-march=rv64imafd_zicsr_zifencei`
