@@ -62,14 +62,14 @@ package C;
     endtask
     `endif
 
+    `ifndef SYNTHESIS
     `define _LOG_BASE(src, str) \
-        if ((log_mask & LOG_``src) != 0) begin \
-            $display(str) \
-        end
+        if ((log_mask & LOG_``src) != 0) \
+            $display(str)
 
     // Some fun
     `define DELIM
-    `define LOG(src, p0, p1=ELIM, p2=ELIM, p3=ELIM, p4=ELIM, p5=ELIM, \
+    `define LOG(src, p0, p1=ELIM, p2=ELIM, p3=ELIM, p4=ELIM, p5=ELIM,
                 p6=ELIM, p7=ELIM, p8=ELIM, p9=ELIM, p10=ELIM) \
     `ifdef D``p1 \
     `_LOG_BASE(src, $sformatf(p0)); \
@@ -112,7 +112,7 @@ package C;
     `endif \
     `endif \
     `endif
-  
+    `endif
     // Usage exemple
     // initial begin
     //     log_init();

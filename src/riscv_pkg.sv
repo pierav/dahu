@@ -1,8 +1,8 @@
 /* RISC-V isa description */
 
 package RV;
-    localparam XLEN = 64;
-    typedef logic [XLEN-1:0] xlen_t;
+    localparam RVXLEN = 64;
+    typedef logic [RVXLEN-1:0] xlen_t;
 
     /*** Instructions ***/
 
@@ -261,8 +261,8 @@ package RV;
 
     // Encoding of MXL field in misa
     typedef enum logic [1:0] {
-        XLEN_32  = 2'b01,
-        XLEN_64  = 2'b10
+        RVXLEN_32  = 2'b01,
+        RVXLEN_64  = 2'b10
     } xl_t;
 
     // Encoding of FS[1:0], VS[1:0], and XS[1:0] status fields
@@ -276,7 +276,7 @@ package RV;
     typedef struct packed {
         logic         sd;     // Signal Dirty
         logic [62:34] wpri6;  // Writes Preserve Reads Ignore
-        xl_t          uxl;    // User XLEN
+        xl_t          uxl;    // User RVXLEN
         logic [12:0]  wpri5;  //
         logic         mxr;    // Make eXecutable Readable
         logic         sum;    // permit Supervisor User Memory access
@@ -297,8 +297,8 @@ package RV;
     typedef struct packed {
         logic         sd;     // Signal Dirty
         logic [62:36] wpri4;  //
-        xl_t          sxl;    // Supervisor XLEN
-        xl_t          uxl;    // User XLEN
+        xl_t          sxl;    // Supervisor RVXLEN
+        xl_t          uxl;    // User RVXLEN
         logic [8:0]   wpri3;  //
         logic         tsr;    // Trap SRet
         logic         tw;     // Time Wait
@@ -321,7 +321,7 @@ package RV;
         logic         wpri0;  //
     } mstatus_rv_t;
 
-    // Supervisor address translation and protection (satp) register when SXLEN=64,
+    // Supervisor address translation and protection (satp) register when SRVXLEN=64,
     // for MODE values Bare, Sv39, Sv48, and Sv57.
     typedef struct packed {
         satp_mode_t    mode;
@@ -368,23 +368,23 @@ package RV;
     } pmpcfg_t;
 
     // Machine cause (mcause) register values after trap
-    localparam logic [XLEN-1:0] INSTR_ADDR_MISALIGNED = 0;
-    localparam logic [XLEN-1:0] INSTR_ACCESS_FAULT    = 1;
-    localparam logic [XLEN-1:0] ILLEGAL_INSTR         = 2;
-    localparam logic [XLEN-1:0] BREAKPOINT            = 3;
-    localparam logic [XLEN-1:0] LD_ADDR_MISALIGNED    = 4;
-    localparam logic [XLEN-1:0] LD_ACCESS_FAULT       = 5;
-    localparam logic [XLEN-1:0] ST_ADDR_MISALIGNED    = 6;
-    localparam logic [XLEN-1:0] ST_ACCESS_FAULT       = 7;
-    localparam logic [XLEN-1:0] ENV_CALL_UMODE        = 8;
-    localparam logic [XLEN-1:0] ENV_CALL_SMODE        = 9;
-    localparam logic [XLEN-1:0] ENV_CALL_MMODE        = 11;
-    localparam logic [XLEN-1:0] INSTR_PAGE_FAULT      = 12;
-    localparam logic [XLEN-1:0] LOAD_PAGE_FAULT       = 13;
-    localparam logic [XLEN-1:0] STORE_PAGE_FAULT      = 15;
-    localparam logic [XLEN-1:0] DOUBLE_TRAP           = 16;
-    localparam logic [XLEN-1:0] SOFTWARE_CHECK        = 18;
-    localparam logic [XLEN-1:0] HARDWARE_ERROR        = 19;
+    localparam logic [RVXLEN-1:0] INSTR_ADDR_MISALIGNED = 0;
+    localparam logic [RVXLEN-1:0] INSTR_ACCESS_FAULT    = 1;
+    localparam logic [RVXLEN-1:0] ILLEGAL_INSTR         = 2;
+    localparam logic [RVXLEN-1:0] BREAKPOINT            = 3;
+    localparam logic [RVXLEN-1:0] LD_ADDR_MISALIGNED    = 4;
+    localparam logic [RVXLEN-1:0] LD_ACCESS_FAULT       = 5;
+    localparam logic [RVXLEN-1:0] ST_ADDR_MISALIGNED    = 6;
+    localparam logic [RVXLEN-1:0] ST_ACCESS_FAULT       = 7;
+    localparam logic [RVXLEN-1:0] ENV_CALL_UMODE        = 8;
+    localparam logic [RVXLEN-1:0] ENV_CALL_SMODE        = 9;
+    localparam logic [RVXLEN-1:0] ENV_CALL_MMODE        = 11;
+    localparam logic [RVXLEN-1:0] INSTR_PAGE_FAULT      = 12;
+    localparam logic [RVXLEN-1:0] LOAD_PAGE_FAULT       = 13;
+    localparam logic [RVXLEN-1:0] STORE_PAGE_FAULT      = 15;
+    localparam logic [RVXLEN-1:0] DOUBLE_TRAP           = 16;
+    localparam logic [RVXLEN-1:0] SOFTWARE_CHECK        = 18;
+    localparam logic [RVXLEN-1:0] HARDWARE_ERROR        = 19;
     
     // Debug control and status register
     typedef struct packed {

@@ -11,6 +11,7 @@ set DESIGN_NAME core
 # set DESIGN_NAME fu_div
 # set DESIGN_NAME fu_mul
 # set DESIGN_NAME fu_lsu
+set DESIGN_NAME fus
 
 #TARGET_LIBRARY_FILES
 set TLF [getenv TLF]
@@ -98,9 +99,35 @@ set_load 0.05 [all_outputs]; # 50 fF load
 # Compile / Synthesis
 #------------------------------------------------------
 
+# Disable retiming globally
+set_dont_retime [get_cells -hierarchical *] true
+
+get_designs *
+
+# Enable retiming
+foreach mod {fu_mul} {
+    set d [get_designs $mod]
+    if {[sizeof_collection $d] == 0} {
+        puts "!! No design found for $mod"
+        continue
+    }
+
+    set retimelist [get_cells -hierarchical -of_objects $d]
+    # set retimelist [get_cells -hierarchical -filter "ref_name == $mod"]
+    puts "Enable retiming for $mod: $retimelist"
+    set_dont_retime $retimelist false
+}
+
+# if {[sizeof_collection $insts] > 0} {
+#     puts ">> Enabling retiming for module '$mod' on [sizeof_collection $insts] instances"
+#     set_dont_retime $insts false 
+# } else {
+#     puts "!! Warning: No instances found for module '$mod'"
+# }
+
 # -gate_clock TODO !
-compile_ultra -no_boundary_optimization
-# -retime
+compile_ultra -no_boundary_optimization -retime
+# 
 report_qor -file qor_report.txt
 
 #------------------------------------------------------

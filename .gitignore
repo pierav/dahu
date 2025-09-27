@@ -10,4 +10,6 @@ log
 *.vcd
 uart_output.log
 
-
+synth/*
+!synth/synth.tcl
+synth.flist

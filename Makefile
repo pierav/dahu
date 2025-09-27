@@ -6,7 +6,8 @@ SRC := $(PKGS) \
 		$(wildcard src/isa/*.sv) \
 		$(wildcard src/core/*.sv) \
 		$(wildcard src/system/*.sv) \
-		$(wildcard src/utils/*.sv)
+		$(wildcard src/utils/*.sv) \
+		$(wildcard src/arith/*.sv)
 
 SRC_DPI := $(wildcard src/tb/*.cpp) \
 		   $(wildcard src/core_oracle/*.cc) \

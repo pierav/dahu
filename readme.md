@@ -6,6 +6,22 @@ Application-class, 8-stage pipeline
 
 # Zen
 
+
+# Simulation
+
+```sh
+# Build golden model
+cd src/cosim/riscv-isa-sim 
+./configure --prefix=`realpath ./build`
+make
+# Build RTL with verilator
+make
+# Run simulation
+
+```
+
+# Asic Synthesis
+
 # RISC-V
 
 use `-march=rv64imafd_zicsr_zifencei`

@@ -53,7 +53,7 @@ module rename #() (
     assign rmt_reads_valid[1] = rmt_valid[rmt_read_id[1]];
     areg_id_t old_areg;
     preg_id_t old_preg;
-    areg_id_t areg;
+    // areg_id_t areg;
     // write port
     always_ff @(posedge clk) begin
         if(!rstn) begin
@@ -70,9 +70,9 @@ module rename #() (
                     // old_preg <= rmt[old_areg];
                     // TODO no broadcast
                     for(int i = 0; i < ARFSIZE; i++) begin
-                        areg = areg_id_t'(i);
-                        if (rmt[areg] == rmt_write) begin
-                            rmt_valid[areg] <= '0;
+                        // areg = areg_id_t'(i);
+                        if (rmt[i] == rmt_write) begin
+                            rmt_valid[i] <= '0;
                         end
                     end
                     // if (reverse_rmt_valid[old_preg]) begin
@@ -97,9 +97,9 @@ module rename #() (
     always_comb begin
         str = "Rename RMT: [";
         for (int i = 0; i < ARFSIZE; i++) begin
-            areg_id_t areg = areg_id_t'(i);
             if (rmt_valid[i]) begin
-                str = {str, $sformatf("%s, ", dumpAPReg(areg, rmt[i], rmt_valid[i]))};
+                str = {str, $sformatf("%s, ",
+                    dumpAPReg(areg_id_t'(i), rmt[i], rmt_valid[i]))};
             end
         end
         str = {str, "]"};

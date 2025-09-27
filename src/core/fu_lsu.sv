@@ -12,8 +12,8 @@ module forward_from_sq(
 );
     // 0) Order sq so simply indexing ?
     sq_entry_t [NR_SQ_ENTRIES-1:0] sq_ordered;
-    sq_id_t idx;
     always_comb begin
+        sq_id_t idx;
         for (int i = 0; i < NR_SQ_ENTRIES; i++) begin
             idx = (sq_issue_id_i - sq_id_t'(1 - i + NR_SQ_ENTRIES));
             sq_ordered[i] = sq_i[idx];
@@ -195,8 +195,8 @@ module fu_lsu #() (
     end
 
     `ifndef SYNTHESIS
-    sq_id_t idx;
     always_ff @(negedge clk) begin
+        sq_id_t idx;
         `LOG(LSU, "SQ issueptr=%x commitptr=%x popptr=%x",
             sq_issue_id_q, sq_commit_id_q, sq_pop_id_q);
         for(int i = 0; i < NR_SQ_ENTRIES; i++) begin
